@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.tmp/
+.env
+.DS_Store
+npm-debug.log*
+pnpm-debug.log*
+
+# Generated Kuzu databases
+*.kuzu
+data/*.kuzu/
+data/kuzu-demo
+data/kuzu-*/
+data/kuzu-demo/

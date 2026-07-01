@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "kuzu-knowledge-graph": {
+      "command": "node",
+      "args": ["/absolute/path/to/kuzu-knowledge-graph-mcp/dist/src/index.js"],
+      "env": {
+        "KUZU_DB_PATH": "/absolute/path/to/kuzu-knowledge-graph-mcp/data/kuzu-demo",
+        "KUZU_AUTO_CREATE_SCHEMA": "true",
+        "KUZU_AUTO_SEED": "true"
+      }
+    }
+  }
+}
+

@@ -1,0 +1,39 @@
+{
+  "name": "kuzu-knowledge-graph-mcp",
+  "version": "0.1.0",
+  "description": "A beginner-friendly MCP server that reads a Kuzu knowledge graph.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "kuzu-kg-mcp": "dist/src/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "seed": "tsc -p tsconfig.json && node dist/scripts/seed.js --reset",
+    "seed:keep": "tsc -p tsconfig.json && node dist/scripts/seed.js",
+    "start": "node dist/src/index.js",
+    "smoke": "tsc -p tsconfig.json && node dist/scripts/smoke.js",
+    "test": "tsc -p tsconfig.json && node dist/scripts/smoke.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "kuzu",
+    "knowledge-graph",
+    "cypher",
+    "graph-database"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "kuzu": "^0.11.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  }
+}
