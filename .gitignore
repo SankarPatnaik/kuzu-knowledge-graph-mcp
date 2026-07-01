@@ -8,7 +8,9 @@ pnpm-debug.log*
 
 # Generated Kuzu databases
 *.kuzu
+*.wal
 data/*.kuzu/
 data/kuzu-demo
+data/kuzu-demo.wal
 data/kuzu-*/
 data/kuzu-demo/

@@ -145,6 +145,16 @@ An editable copy is available in [mcp-config.example.json](./mcp-config.example.
 
 Full tool guide: [docs/TOOLS.md](./docs/TOOLS.md)
 
+## Create And Run A Simple MCP Client
+
+This repo includes a beginner MCP client that starts the Kuzu MCP server, lists tools, reads the schema resource, and calls graph tools.
+
+```bash
+npm run client:demo
+```
+
+Client guide: [docs/CLIENT.md](./docs/CLIENT.md)
+
 ## Example Journey
 
 The included sample graph models a GenAI Workbench support and deployment knowledge graph.
