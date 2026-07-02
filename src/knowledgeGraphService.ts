@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { appendLimit, cypherString, validateReadOnlyCypher } from './cypher.js';
 import { KuzuGraph } from './kuzuGraph.js';
-import { NODE_TABLES, REL_TABLES, SCHEMA_DESCRIPTION } from './schema.js';
+import { NODE_TABLES, REL_TABLES, SCHEMA_DESCRIPTION, SCHEMA_TABLE_DETAILS } from './schema.js';
 import type { JsonValue, QueryRow, SearchResult } from './types.js';
 
 type EntityDraft = {
@@ -27,6 +27,12 @@ type KnowledgeGraphDraft = {
   topics?: string[];
   entities?: EntityDraft[];
   relationships?: EntityRelationshipDraft[];
+};
+
+type ExploreGraphRequest = {
+  table: string;
+  depth?: number;
+  limit?: number;
 };
 
 type DocumentContext = {
@@ -176,6 +182,15 @@ function normalizeLimit(limit: number, fallback = 300): number {
   return Math.max(1, Math.min(Number.isFinite(limit) ? Math.trunc(limit) : fallback, 1000));
 }
 
+function graphNode(id: string, label: string, type: string, properties: Record<string, JsonValue> = {}): Record<string, JsonValue> {
+  return {
+    id,
+    label,
+    type,
+    ...properties,
+  };
+}
+
 export class KnowledgeGraphService {
   constructor(private readonly graph: KuzuGraph) {}
 
@@ -191,6 +206,7 @@ export class KnowledgeGraphService {
       databasePath: this.graph.dbPath,
       nodeTables: SCHEMA_DESCRIPTION.nodes,
       relationshipTables: SCHEMA_DESCRIPTION.relationships,
+      tableDetails: this.schemaDetails(),
       nodeCounts,
       relationshipCounts: relCounts,
       exampleQueries: [
@@ -198,6 +214,75 @@ export class KnowledgeGraphService {
         "MATCH (c:Chunk)-[:MENTIONS]->(e:Entity) RETURN c.id, e.name, e.type LIMIT 10",
         "MATCH (a:Entity)-[r:RELATED_TO]->(b:Entity) RETURN a.name, r.relation, b.name LIMIT 10",
       ],
+    };
+  }
+
+  schemaDetails(): Record<string, JsonValue> {
+    const nodeTables = SCHEMA_TABLE_DETAILS.nodes.map((table) => ({
+      name: table.name,
+      description: table.description,
+      properties: table.properties.map((property) => ({
+        name: property.name,
+        type: property.type,
+        primaryKey: property.primaryKey,
+      })),
+      sampleQueries: [
+        `MATCH (n:${table.name}) RETURN count(n) AS count`,
+        `MATCH (n:${table.name}) RETURN n LIMIT 10`,
+        `MATCH (n:${table.name}) RETURN ${table.properties.map((property) => `n.${property.name} AS ${property.name}`).join(', ')} LIMIT 10`,
+      ],
+    }));
+    const relationshipTables = SCHEMA_TABLE_DETAILS.relationships.map((table) => ({
+      name: table.name,
+      from: table.from,
+      to: table.to,
+      description: table.description,
+      properties: table.properties.map((property) => ({
+        name: property.name,
+        type: property.type,
+      })),
+      sampleQueries: [
+        `MATCH (a:${table.from})-[r:${table.name}]->(b:${table.to}) RETURN count(r) AS count`,
+        `MATCH (a:${table.from})-[r:${table.name}]->(b:${table.to}) RETURN a, r, b LIMIT 10`,
+      ],
+    }));
+    const propertyCount =
+      SCHEMA_TABLE_DETAILS.nodes.reduce((count, table) => count + table.properties.length, 0) +
+      SCHEMA_TABLE_DETAILS.relationships.reduce((count, table) => count + table.properties.length, 0);
+
+    return {
+      nodeTables,
+      relationshipTables,
+      summary: {
+        nodeTableCount: nodeTables.length,
+        relationshipTableCount: relationshipTables.length,
+        propertyCount,
+      },
+      generatedQueries: [
+        'MATCH (n:Document) RETURN count(n) AS documents',
+        'MATCH (d:Document)-[:HAS_CHUNK]->(c:Chunk) RETURN d.title AS document, c.section AS section, c.text AS text LIMIT 10',
+        'MATCH (a:Entity)-[r:RELATED_TO]->(b:Entity) RETURN a.name AS fromEntity, r.relation AS relation, b.name AS toEntity LIMIT 20',
+        'MATCH (c:Chunk)-[:MENTIONS]->(e:Entity) RETURN c.section AS section, e.name AS entity, e.type AS type LIMIT 20',
+      ],
+    };
+  }
+
+  async databaseSummary(): Promise<Record<string, JsonValue>> {
+    const [nodeCounts, relationshipCounts] = await Promise.all([this.nodeCounts(), this.relationshipCounts()]);
+    const nodeTableCount = Object.keys(nodeCounts).length;
+    const relationshipTableCount = Object.keys(relationshipCounts).length;
+
+    return {
+      id: 'default',
+      name: 'Default Kuzu Knowledge Graph',
+      storage: this.graph.dbPath.split('/').slice(-2).join('/'),
+      status: 'connected',
+      mode: 'read-write',
+      lastOpenedAt: new Date().toISOString(),
+      nodeTableCount,
+      relationshipTableCount,
+      nodeCounts,
+      relationshipCounts,
     };
   }
 
@@ -368,12 +453,99 @@ export class KnowledgeGraphService {
   }
 
   async runReadOnlyCypher(query: string, limit = 100): Promise<Record<string, JsonValue>> {
+    const startedAt = performance.now();
     const safeQuery = appendLimit(validateReadOnlyCypher(query), limit);
     const rows = await this.graph.query(safeQuery);
+    const executionMs = Math.round((performance.now() - startedAt) * 100) / 100;
     return {
       query: safeQuery,
       rowCount: rows.length,
+      executionMs,
       rows,
+      graph: this.graphFromRows(rows),
+    };
+  }
+
+  async exploreGraph(input: ExploreGraphRequest): Promise<Record<string, JsonValue>> {
+    const table = input.table.trim();
+    const allowedTables = new Set<string>(NODE_TABLES);
+    if (!allowedTables.has(table as (typeof NODE_TABLES)[number])) {
+      throw new Error(`Explore table must be one of: ${NODE_TABLES.join(', ')}.`);
+    }
+
+    const limit = normalizeLimit(input.limit ?? 100, 100);
+    const depth = Math.max(1, Math.min(Number(input.depth ?? 1), 3));
+    const snapshot = await this.graphSnapshot(limit);
+    const nodes = (snapshot.nodes as Record<string, JsonValue>[]).filter((node) => node.type === table);
+    const seedIds = new Set(nodes.map((node) => asString(node.id)));
+    const allNodes = snapshot.nodes as Record<string, JsonValue>[];
+    const allEdges = snapshot.edges as Record<string, JsonValue>[];
+    const visibleIds = new Set(seedIds);
+
+    for (let step = 0; step < depth; step += 1) {
+      for (const edge of allEdges) {
+        const source = asString(edge.source);
+        const target = asString(edge.target);
+        if (visibleIds.has(source) || visibleIds.has(target)) {
+          visibleIds.add(source);
+          visibleIds.add(target);
+        }
+      }
+    }
+
+    const visibleNodes = allNodes.filter((node) => visibleIds.has(asString(node.id)));
+    const visibleEdges = allEdges.filter((edge) => visibleIds.has(asString(edge.source)) && visibleIds.has(asString(edge.target)));
+
+    return {
+      table,
+      depth,
+      limit,
+      generatedQuery: `MATCH (n:${table}) RETURN n LIMIT ${limit}`,
+      warning:
+        (snapshot.counts as Record<string, JsonValue>).nodes === limit
+          ? `The graph was limited to ${limit} nodes. Increase the limit carefully if you need more context.`
+          : null,
+      nodes: visibleNodes,
+      edges: visibleEdges,
+      counts: {
+        nodes: visibleNodes.length,
+        edges: visibleEdges.length,
+      },
+    };
+  }
+
+  importPreview(input: KnowledgeGraphDraft): Record<string, JsonValue> {
+    const title = input.title.trim();
+    const body = input.body.trim();
+    const chunks = body ? splitIntoChunks(body) : [];
+    const topics = compactUnique(input.topics ?? []);
+    const entities = this.normalizeEntityDrafts(input.entities?.length ? input.entities : inferEntities(body));
+    const relationships = input.relationships?.filter((relationship) => relationship.from.trim() && relationship.to.trim() && relationship.relation.trim()) ?? [];
+
+    return {
+      valid: Boolean(title && body),
+      warnings: [
+        ...(!title ? ['Document title is required.'] : []),
+        ...(!body ? ['Knowledge text is required.'] : []),
+        ...(relationships.length !== (input.relationships ?? []).length ? ['Some relationship rows are incomplete and will be skipped.'] : []),
+      ],
+      operations: [
+        { type: 'create-node', table: 'Document', count: title ? 1 : 0 },
+        { type: 'create-node', table: 'Chunk', count: chunks.length },
+        { type: 'create-node-or-reuse', table: 'Topic', count: topics.length },
+        { type: 'create-node-or-reuse', table: 'Entity', count: entities.length },
+        { type: 'create-relationship', table: 'HAS_CHUNK', count: chunks.length },
+        { type: 'create-relationship', table: 'ABOUT', count: topics.length },
+        { type: 'create-relationship', table: 'MENTIONS', count: entities.length },
+        { type: 'create-relationship', table: 'RELATED_TO', count: relationships.length },
+      ],
+      generatedCypherPreview: [
+        `CREATE (:Document {title: ${cypherString(title || 'Untitled')}})`,
+        `CREATE ${chunks.length} Chunk node(s) and HAS_CHUNK relationship(s)`,
+        `MERGE/CREATE ${topics.length} Topic node(s) and ABOUT relationship(s)`,
+        `MERGE/CREATE ${entities.length} Entity node(s) and MENTIONS relationship(s)`,
+        `CREATE ${relationships.length} RELATED_TO relationship(s)`,
+      ],
     };
   }
 
@@ -534,6 +706,59 @@ export class KnowledgeGraphService {
     };
   }
 
+  private graphFromRows(rows: QueryRow[]): Record<string, JsonValue> {
+    const nodes = new Map<string, Record<string, JsonValue>>();
+    const edges: Record<string, JsonValue>[] = [];
+
+    function addNode(id: string, label: string, type: string, properties: Record<string, JsonValue> = {}) {
+      if (!nodes.has(id)) {
+        nodes.set(id, graphNode(id, label, type, properties));
+      }
+    }
+
+    for (const row of rows) {
+      const fromEntity = asString(row.fromEntity ?? row.fromName);
+      const toEntity = asString(row.toEntity ?? row.toName);
+      const source = asString(row.source ?? row.fromId);
+      const target = asString(row.target ?? row.toId);
+
+      if (fromEntity && toEntity) {
+        const fromId = `query-node-${slugify(fromEntity)}`;
+        const toId = `query-node-${slugify(toEntity)}`;
+        addNode(fromId, fromEntity, 'Entity');
+        addNode(toId, toEntity, 'Entity');
+        edges.push({
+          source: fromId,
+          target: toId,
+          type: asString(row.relation || row.type || row.label || 'RELATED_TO'),
+          label: asString(row.relation || row.type || row.label || 'RELATED_TO'),
+          evidence: row.evidence ?? null,
+        });
+      } else if (source && target) {
+        addNode(source, source, asString(row.sourceType || 'Node'));
+        addNode(target, target, asString(row.targetType || 'Node'));
+        edges.push({
+          source,
+          target,
+          type: asString(row.type || row.label || row.relation || 'RELATIONSHIP'),
+          label: asString(row.type || row.label || row.relation || 'RELATIONSHIP'),
+        });
+      } else if (row.id || row.label || row.name || row.title) {
+        const id = asString(row.id || row.label || row.name || row.title);
+        addNode(id, asString(row.label || row.name || row.title || row.id), asString(row.type || row.kind || 'Result'), row);
+      }
+    }
+
+    return {
+      nodes: [...nodes.values()],
+      edges,
+      counts: {
+        nodes: nodes.size,
+        edges: edges.length,
+      },
+    };
+  }
+
   private async nodeCounts(): Promise<Record<string, number>> {
     const entries = await Promise.all(NODE_TABLES.map(async (table) => [table, await this.graph.countNodes(table)] as const));
     return Object.fromEntries(entries);
@@ -634,7 +859,7 @@ export class KnowledgeGraphService {
     }
 
     const id = uniqueId('topic', name);
-    const description = `Knowledge area created in Kuzu Studio: ${name}.`;
+    const description = `Knowledge area created in Kuzu Graph Console: ${name}.`;
     await this.graph.exec(`CREATE (:Topic {id: ${cypherString(id)}, name: ${cypherString(name)}, description: ${cypherString(description)}})`);
     return { id, name, description };
   }

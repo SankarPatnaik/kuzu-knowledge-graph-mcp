@@ -23,18 +23,18 @@ const safeCypher = await service.runReadOnlyCypher(
   20,
 );
 const created = await service.createKnowledgeGraph({
-  title: 'Kuzu Studio Smoke Runbook',
-  source: 'smoke/studio.md',
+  title: 'Kuzu Graph Console Smoke Runbook',
+  source: 'smoke/console.md',
   owner: 'QA',
-  summary: 'Smoke test document for the Kuzu Studio product path.',
-  body: 'Kuzu Studio lets users create a Knowledge Graph from pasted text. Kuzu stores the graph, and the Studio visualizer helps users inspect documents, entities, topics, and relationships.',
-  topics: ['Studio', 'Knowledge Graph'],
+  summary: 'Smoke test document for the Kuzu Graph Console product path.',
+  body: 'Kuzu Graph Console lets users create a Knowledge Graph from pasted text. Kuzu stores the graph, and the console visualizer helps users inspect documents, entities, topics, and relationships.',
+  topics: ['Console', 'Knowledge Graph'],
   entities: [
-    { name: 'Kuzu Studio', type: 'Product', description: 'Browser app for creating and exploring the graph.' },
+    { name: 'Kuzu Graph Console', type: 'Product', description: 'Browser app for creating and exploring the graph.' },
     { name: 'Knowledge Graph', type: 'Data Model', description: 'Connected documents, chunks, entities, and topics.' },
     { name: 'Kuzu', type: 'Graph Database', description: 'Embedded graph database used by the app.' },
   ],
-  relationships: [{ from: 'Kuzu Studio', relation: 'CREATES', to: 'Knowledge Graph', evidence: 'Users create graph records from source text.' }],
+  relationships: [{ from: 'Kuzu Graph Console', relation: 'CREATES', to: 'Knowledge Graph', evidence: 'Users create graph records from source text.' }],
 });
 const snapshot = await service.graphSnapshot(500);
 
@@ -53,7 +53,7 @@ if (safeCypher.rowCount === 0) {
 const createdDocument = created.document as Record<string, unknown>;
 const snapshotNodes = snapshot.nodes as Record<string, unknown>[];
 if (!snapshotNodes.some((node) => node.id === createdDocument.id)) {
-  throw new Error('Smoke test expected the Studio-created document in the graph snapshot.');
+  throw new Error('Smoke test expected the console-created document in the graph snapshot.');
 }
 
 console.log(
@@ -64,7 +64,7 @@ console.log(
       nodeCounts: overview.nodeCounts,
       questionMatches: (questionContext.matches as unknown[]).length,
       cypherRows: safeCypher.rowCount,
-      studioDocument: createdDocument.id,
+      consoleDocument: createdDocument.id,
       snapshotNodes: snapshotNodes.length,
     },
     null,

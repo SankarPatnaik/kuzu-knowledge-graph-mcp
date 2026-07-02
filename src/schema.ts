@@ -27,3 +27,81 @@ export const SCHEMA_DESCRIPTION = {
   },
 };
 
+export const SCHEMA_TABLE_DETAILS = {
+  nodes: [
+    {
+      name: 'Document',
+      description: SCHEMA_DESCRIPTION.nodes.Document,
+      properties: [
+        { name: 'id', type: 'STRING', primaryKey: true },
+        { name: 'title', type: 'STRING', primaryKey: false },
+        { name: 'source', type: 'STRING', primaryKey: false },
+        { name: 'owner', type: 'STRING', primaryKey: false },
+        { name: 'createdAt', type: 'STRING', primaryKey: false },
+        { name: 'summary', type: 'STRING', primaryKey: false },
+      ],
+    },
+    {
+      name: 'Chunk',
+      description: SCHEMA_DESCRIPTION.nodes.Chunk,
+      properties: [
+        { name: 'id', type: 'STRING', primaryKey: true },
+        { name: 'text', type: 'STRING', primaryKey: false },
+        { name: 'tokenEstimate', type: 'INT64', primaryKey: false },
+        { name: 'section', type: 'STRING', primaryKey: false },
+      ],
+    },
+    {
+      name: 'Entity',
+      description: SCHEMA_DESCRIPTION.nodes.Entity,
+      properties: [
+        { name: 'id', type: 'STRING', primaryKey: true },
+        { name: 'name', type: 'STRING', primaryKey: false },
+        { name: 'type', type: 'STRING', primaryKey: false },
+        { name: 'description', type: 'STRING', primaryKey: false },
+      ],
+    },
+    {
+      name: 'Topic',
+      description: SCHEMA_DESCRIPTION.nodes.Topic,
+      properties: [
+        { name: 'id', type: 'STRING', primaryKey: true },
+        { name: 'name', type: 'STRING', primaryKey: false },
+        { name: 'description', type: 'STRING', primaryKey: false },
+      ],
+    },
+  ],
+  relationships: [
+    {
+      name: 'HAS_CHUNK',
+      from: 'Document',
+      to: 'Chunk',
+      description: SCHEMA_DESCRIPTION.relationships.HAS_CHUNK,
+      properties: [{ name: 'position', type: 'INT64' }],
+    },
+    {
+      name: 'MENTIONS',
+      from: 'Chunk',
+      to: 'Entity',
+      description: SCHEMA_DESCRIPTION.relationships.MENTIONS,
+      properties: [{ name: 'confidence', type: 'DOUBLE' }],
+    },
+    {
+      name: 'ABOUT',
+      from: 'Document',
+      to: 'Topic',
+      description: SCHEMA_DESCRIPTION.relationships.ABOUT,
+      properties: [{ name: 'weight', type: 'DOUBLE' }],
+    },
+    {
+      name: 'RELATED_TO',
+      from: 'Entity',
+      to: 'Entity',
+      description: SCHEMA_DESCRIPTION.relationships.RELATED_TO,
+      properties: [
+        { name: 'relation', type: 'STRING' },
+        { name: 'evidence', type: 'STRING' },
+      ],
+    },
+  ],
+} as const;

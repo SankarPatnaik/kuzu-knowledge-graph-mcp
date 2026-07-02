@@ -12,11 +12,25 @@ type Session = {
   expiresAt: number;
 };
 
+type QueryLog = {
+  id: string;
+  kind: 'query' | 'import' | 'database';
+  status: 'success' | 'error';
+  label: string;
+  query?: string;
+  durationMs: number;
+  rowCount?: number;
+  error?: string;
+  createdAt: string;
+};
+
 const config = loadConfig();
 const graph = new KuzuGraph(config);
 const service = new KnowledgeGraphService(graph);
 const sessions = new Map<string, Session>();
+const logs: QueryLog[] = [];
 const staticRoot = path.resolve(process.cwd(), 'web');
+const serverStartedAt = new Date().toISOString();
 
 const appHost = process.env.KG_APP_HOST || '127.0.0.1';
 const appPort = Number(process.env.KG_APP_PORT || 8787);
@@ -141,15 +155,58 @@ function numberFromSearch(searchParams: URLSearchParams, name: string, fallback:
   return Number.isFinite(value) ? value : fallback;
 }
 
+function addLog(entry: Omit<QueryLog, 'id' | 'createdAt'>): QueryLog {
+  const log = {
+    ...entry,
+    id: randomBytes(8).toString('hex'),
+    createdAt: new Date().toISOString(),
+  };
+  logs.unshift(log);
+  logs.splice(100);
+  return log;
+}
+
+function knowledgeGraphDraftFromBody(body: Record<string, unknown>) {
+  return {
+    title: stringValue(body.title),
+    body: stringValue(body.body),
+    source: stringValue(body.source),
+    owner: stringValue(body.owner),
+    summary: stringValue(body.summary),
+    topics: stringArray(body.topics),
+    entities: objectArray(body.entities).map((entity) => ({
+      name: stringValue(entity.name),
+      type: stringValue(entity.type),
+      description: stringValue(entity.description),
+    })),
+    relationships: objectArray(body.relationships).map((relationship) => ({
+      from: stringValue(relationship.from),
+      to: stringValue(relationship.to),
+      relation: stringValue(relationship.relation),
+      evidence: stringValue(relationship.evidence),
+    })),
+  };
+}
+
 async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   const method = req.method ?? 'GET';
+
+  if (method === 'GET' && url.pathname === '/status') {
+    sendJson(res, 200, {
+      status: 'ok',
+      product: 'Kuzu Graph Console',
+      serverStartedAt,
+      database: await service.databaseSummary(),
+    });
+    return;
+  }
 
   if (method === 'GET' && url.pathname === '/api/session') {
     const session = getSession(req);
     sendJson(res, 200, {
       authenticated: Boolean(session),
       user: session ? { email: session.username } : null,
-      databasePath: config.dbPath,
+      database: await service.databaseSummary(),
     });
     return;
   }
@@ -183,13 +240,61 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
     return;
   }
 
+  if (method === 'GET' && url.pathname === '/api/status') {
+    sendJson(res, 200, {
+      status: 'ok',
+      product: 'Kuzu Graph Console',
+      serverStartedAt,
+      database: await service.databaseSummary(),
+    });
+    return;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/databases') {
+    sendJson(res, 200, { databases: [await service.databaseSummary()] });
+    return;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/databases/default/open') {
+    const started = performance.now();
+    await service.connect();
+    const database = await service.databaseSummary();
+    addLog({
+      kind: 'database',
+      status: 'success',
+      label: 'Open database',
+      durationMs: Math.round((performance.now() - started) * 100) / 100,
+    });
+    sendJson(res, 200, { database });
+    return;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/databases/default/disconnect') {
+    addLog({
+      kind: 'database',
+      status: 'success',
+      label: 'Disconnect requested',
+      durationMs: 0,
+    });
+    sendJson(res, 200, {
+      database: await service.databaseSummary(),
+      message: 'Embedded Kuzu stays open for this server process. Stop the app server to fully close it.',
+    });
+    return;
+  }
+
   if (method === 'GET' && url.pathname === '/api/overview') {
     sendJson(res, 200, await service.overview());
     return;
   }
 
-  if (method === 'GET' && url.pathname === '/api/schema') {
+  if (method === 'GET' && (url.pathname === '/api/schema' || url.pathname === '/schema')) {
     sendJson(res, 200, await service.schema());
+    return;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/schema-details') {
+    sendJson(res, 200, service.schemaDetails());
     return;
   }
 
@@ -215,26 +320,21 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
 
   if (method === 'POST' && url.pathname === '/api/documents') {
     const body = await readJson(req);
-    const result = await service.createKnowledgeGraph({
-      title: stringValue(body.title),
-      body: stringValue(body.body),
-      source: stringValue(body.source),
-      owner: stringValue(body.owner),
-      summary: stringValue(body.summary),
-      topics: stringArray(body.topics),
-      entities: objectArray(body.entities).map((entity) => ({
-        name: stringValue(entity.name),
-        type: stringValue(entity.type),
-        description: stringValue(entity.description),
-      })),
-      relationships: objectArray(body.relationships).map((relationship) => ({
-        from: stringValue(relationship.from),
-        to: stringValue(relationship.to),
-        relation: stringValue(relationship.relation),
-        evidence: stringValue(relationship.evidence),
-      })),
+    const started = performance.now();
+    const result = await service.createKnowledgeGraph(knowledgeGraphDraftFromBody(body));
+    addLog({
+      kind: 'import',
+      status: 'success',
+      label: `Import document: ${stringValue(body.title) || 'Untitled'}`,
+      durationMs: Math.round((performance.now() - started) * 100) / 100,
     });
     sendJson(res, 201, result);
+    return;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/import/preview') {
+    const body = await readJson(req);
+    sendJson(res, 200, service.importPreview(knowledgeGraphDraftFromBody(body)));
     return;
   }
 
@@ -254,15 +354,64 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
     return;
   }
 
-  if (method === 'POST' && url.pathname === '/api/cypher') {
+  if (method === 'POST' && (url.pathname === '/api/cypher' || url.pathname === '/cypher')) {
     const body = await readJson(req);
-    sendJson(res, 200, await service.runReadOnlyCypher(stringValue(body.query), Number(body.limit ?? 100)));
+    const query = stringValue(body.query);
+    const started = performance.now();
+    try {
+      const result = await service.runReadOnlyCypher(query, Number(body.limit ?? 100));
+      addLog({
+        kind: 'query',
+        status: 'success',
+        label: 'Run Cypher',
+        query: result.query as string,
+        durationMs: Number(result.executionMs ?? Math.round((performance.now() - started) * 100) / 100),
+        rowCount: Number(result.rowCount ?? 0),
+      });
+      sendJson(res, 200, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      addLog({
+        kind: 'query',
+        status: 'error',
+        label: 'Run Cypher',
+        query,
+        durationMs: Math.round((performance.now() - started) * 100) / 100,
+        error: message,
+      });
+      throw error;
+    }
     return;
   }
 
   if (method === 'POST' && url.pathname === '/api/question') {
     const body = await readJson(req);
     sendJson(res, 200, await service.answerContext(stringValue(body.question), Number(body.limit ?? 5)));
+    return;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/explore') {
+    const body = await readJson(req);
+    sendJson(
+      res,
+      200,
+      await service.exploreGraph({
+        table: stringValue(body.table || 'Document'),
+        depth: Number(body.depth ?? 1),
+        limit: Number(body.limit ?? 100),
+      }),
+    );
+    return;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/logs') {
+    sendJson(res, 200, { logs });
+    return;
+  }
+
+  if (method === 'DELETE' && url.pathname === '/api/logs') {
+    logs.splice(0);
+    sendJson(res, 200, { logs });
     return;
   }
 
@@ -304,15 +453,20 @@ await service.connect();
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? `${appHost}:${appPort}`}`);
+  const wantsJsonRoot = url.pathname === '/' && (req.headers.accept ?? '').includes('application/json');
+  const isApiRequest = url.pathname.startsWith('/api/') || ['/status', '/schema', '/cypher'].includes(url.pathname) || wantsJsonRoot;
+  if (wantsJsonRoot) {
+    url.pathname = '/status';
+  }
 
-  Promise.resolve(url.pathname.startsWith('/api/') ? handleApi(req, res, url) : serveStatic(req, res, url)).catch((error: unknown) => {
+  Promise.resolve(isApiRequest ? handleApi(req, res, url) : serveStatic(req, res, url)).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     sendJson(res, 500, { error: message });
   });
 });
 
 server.listen(appPort, appHost, () => {
-  console.log(`Kuzu Studio running at http://${appHost}:${appPort}`);
+  console.log(`Kuzu Graph Console running at http://${appHost}:${appPort}`);
   console.log(`Login with ${appUser} / ${appPassword}`);
-  console.log(`Database path: ${config.dbPath}`);
+  console.log(`Database storage: ${config.dbPath.split('/').slice(-2).join('/')}`);
 });

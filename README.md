@@ -16,7 +16,7 @@ This project is designed for a first Kuzu journey:
 - Embedded Kuzu database connection
 - Auto-created graph schema
 - Optional sample data seed
-- Built-in Kuzu Studio web app
+- Built-in Kuzu Graph Console web app
 - Read-only Cypher guard
 - Six MCP tools
 - One schema resource
@@ -44,7 +44,7 @@ Browser
   |
   | HTTP JSON + static UI
   v
-Kuzu Studio App
+Kuzu Graph Console App
   |
   | Kuzu Node.js API
   v
@@ -83,9 +83,9 @@ Expected smoke result:
 }
 ```
 
-## Run Kuzu Studio
+## Run Kuzu Graph Console
 
-Kuzu Studio is the built-in browser app for creating, visualizing, searching, and querying the graph.
+Kuzu Graph Console is the built-in browser app for opening the configured Kuzu database, inspecting schema, running read-only Cypher, exploring graph results, importing source text, and reviewing logs.
 
 ```bash
 npm run app:dev
@@ -103,9 +103,11 @@ Default local login:
 admin@example.com / kuzu
 ```
 
-Studio guide: [docs/STUDIO.md](./docs/STUDIO.md)
+Beginner user guide: [docs/USER_GUIDE.md](./docs/USER_GUIDE.md)
 
-To create a new graph from pasted documents or notes, follow the step-by-step walkthrough in [Create Your First Knowledge Graph](./docs/STUDIO.md#create-your-first-knowledge-graph).
+Console API/reference guide: [docs/STUDIO.md](./docs/STUDIO.md)
+
+To create a new graph from pasted documents or notes, follow [Create A New Knowledge Graph](./docs/USER_GUIDE.md#create-a-new-knowledge-graph).
 
 ## Run The MCP Server
 
@@ -236,7 +238,7 @@ src/
   index.ts                 MCP server entrypoint
   kuzuGraph.ts             Kuzu connection and query wrapper
   knowledgeGraphService.ts Graph read operations
-  appServer.ts              Kuzu Studio HTTP API and static server
+  appServer.ts              Kuzu Graph Console HTTP API and static server
   schema.ts                Kuzu graph schema
   seedData.ts              Sample data journey
   cypher.ts                Read-only Cypher validation
@@ -248,8 +250,11 @@ scripts/
   seed.ts                  Reset and seed the demo graph
   smoke.ts                 Build confidence test
 docs/
+  USER_GUIDE.md
+  CONSOLE_ARCHITECTURE.md
   DATA_JOURNEY.md
   DEPLOYMENT.md
+  STUDIO.md
   TOOLS.md
 examples/
   graph-journey.cypher

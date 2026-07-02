@@ -3,19 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kuzu Studio</title>
-    <link rel="stylesheet" href="/styles.css?v=3" />
+    <title>Kuzu Graph Console</title>
+    <link rel="stylesheet" href="/styles.css?v=10" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <main id="loginView" class="login-view">
-      <section class="login-brand" aria-label="Kuzu Studio">
+      <section class="login-brand" aria-label="Kuzu Graph Console">
         <div class="brand-lockup">
           <div class="brand-mark">K</div>
           <div>
-            <h1>Kuzu Studio</h1>
-            <p>Embedded knowledge graph workspace</p>
+            <h1>Kuzu Graph Console</h1>
+            <p>Visual database console for embedded Kuzu knowledge graphs</p>
           </div>
         </div>
         <div class="network-preview" aria-hidden="true">
@@ -31,6 +31,10 @@
 
       <section class="login-panel" aria-label="Login">
         <form id="loginForm" class="login-form">
+          <div>
+            <h2>Sign in</h2>
+            <p class="muted">Local console session</p>
+          </div>
           <label>
             Email
             <input name="email" type="email" value="admin@example.com" autocomplete="username" required />
@@ -40,7 +44,7 @@
             <input name="password" type="password" value="kuzu" autocomplete="current-password" required />
           </label>
           <button class="primary-action" type="submit">Sign in</button>
-          <p class="muted">Local default: admin@example.com / kuzu</p>
+          <p class="muted">Default: admin@example.com / kuzu</p>
         </form>
       </section>
     </main>
@@ -49,27 +53,34 @@
       <aside class="sidebar">
         <div class="sidebar-brand">
           <div class="brand-mark small">K</div>
-          <span>Kuzu Studio</span>
+          <div>
+            <strong>Kuzu Graph Console</strong>
+            <span id="sidebarDatabase">Default database</span>
+          </div>
         </div>
         <nav class="nav-list" aria-label="Primary">
           <button class="nav-item active" type="button" data-view="overview"><span>O</span>Overview</button>
-          <button class="nav-item" type="button" data-view="build"><span>B</span>Build</button>
-          <button class="nav-item" type="button" data-view="explore"><span>G</span>Explore</button>
+          <button class="nav-item" type="button" data-view="databases"><span>D</span>Databases</button>
+          <button class="nav-item" type="button" data-view="schema"><span>S</span>Schema</button>
           <button class="nav-item" type="button" data-view="query"><span>Q</span>Query</button>
-          <button class="nav-item" type="button" data-view="ask"><span>A</span>Ask</button>
+          <button class="nav-item" type="button" data-view="explore"><span>G</span>Explore Graph</button>
+          <button class="nav-item" type="button" data-view="import"><span>I</span>Import Data</button>
+          <button class="nav-item" type="button" data-view="logs"><span>L</span>Jobs / Logs</button>
+          <button class="nav-item" type="button" data-view="settings"><span>T</span>Settings</button>
         </nav>
       </aside>
 
       <section class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Workspace</p>
+            <p class="eyebrow">Kuzu Graph Console</p>
             <h2 id="viewTitle">Overview</h2>
           </div>
           <div class="topbar-actions">
+            <span id="databaseStatusBadge" class="status-chip neutral">Checking</span>
             <label class="search-box">
               <span>Search</span>
-              <input id="globalSearch" type="search" placeholder="Documents, entities, topics" />
+              <input id="globalSearch" type="search" placeholder="Search graph content" />
             </label>
             <button id="refreshButton" class="icon-button" type="button" title="Refresh">R</button>
             <button id="logoutButton" class="ghost-action" type="button">Logout</button>
@@ -79,28 +90,166 @@
         <div id="searchResults" class="search-results" hidden></div>
 
         <section id="overviewPanel" class="view-panel active">
-          <div class="kpi-grid" id="kpiGrid"></div>
-          <div class="two-column">
-            <section>
+          <div id="overviewKpiGrid" class="kpi-grid"></div>
+          <div class="dashboard-grid">
+            <section class="panel">
               <div class="section-heading">
-                <h3>Topic Coverage</h3>
-                <span id="topicCount" class="pill">0 topics</span>
+                <h3>Database Instance</h3>
+                <span id="overviewInstanceStatus" class="status-chip neutral">Checking</span>
               </div>
-              <div id="topicTable" class="data-table"></div>
+              <div id="overviewInstance" class="instance-summary"></div>
             </section>
-            <section>
+            <section class="panel">
               <div class="section-heading">
-                <h3>Relationship Samples</h3>
-                <span id="relationshipCount" class="pill">0 edges</span>
+                <h3>Recent Activity</h3>
+                <button class="text-action" type="button" data-view-link="logs">View logs</button>
               </div>
-              <div id="relationshipList" class="relationship-list"></div>
+              <div id="activityPreview" class="activity-list"></div>
+            </section>
+          </div>
+          <section class="panel">
+            <div class="section-heading">
+              <h3>Topic Coverage</h3>
+              <span id="topicCount" class="pill">0 topics</span>
+            </div>
+            <div id="topicTable" class="data-table"></div>
+          </section>
+        </section>
+
+        <section id="databasesPanel" class="view-panel">
+          <div id="databaseCards" class="database-grid"></div>
+        </section>
+
+        <section id="schemaPanel" class="view-panel">
+          <div id="schemaKpiGrid" class="kpi-grid compact"></div>
+          <div class="schema-layout">
+            <section class="panel">
+              <div class="section-heading">
+                <h3>Tables</h3>
+                <span id="schemaTableCount" class="pill">0 tables</span>
+              </div>
+              <div id="schemaTableList" class="schema-table-list"></div>
+            </section>
+            <section class="panel">
+              <div class="section-heading">
+                <h3 id="schemaDetailTitle">Table Details</h3>
+                <span id="schemaDetailType" class="pill">Select table</span>
+              </div>
+              <div id="schemaDetails" class="schema-details"></div>
+            </section>
+            <section class="panel">
+              <div class="section-heading">
+                <h3>Generated Queries</h3>
+              </div>
+              <div id="schemaQueries" class="query-list"></div>
             </section>
           </div>
         </section>
 
-        <section id="buildPanel" class="view-panel">
-          <form id="graphForm" class="builder-grid">
-            <section class="form-main">
+        <section id="queryPanel" class="view-panel">
+          <div class="query-workspace">
+            <section class="panel query-editor-panel">
+              <div class="section-heading">
+                <h3>Cypher Workspace</h3>
+                <span class="pill">Read-only guard</span>
+              </div>
+              <label>
+                Query
+                <textarea id="cypherInput" class="code-editor" rows="12">MATCH (a:Entity)-[r:RELATED_TO]->(b:Entity) RETURN a.name AS fromEntity, r.relation AS relation, b.name AS toEntity, r.evidence AS evidence</textarea>
+              </label>
+              <div class="button-row">
+                <button id="formatCypherButton" class="ghost-action" type="button">Format</button>
+                <button id="saveQueryButton" class="ghost-action" type="button">Save</button>
+                <button id="stopQueryButton" class="ghost-action" type="button" disabled>Stop</button>
+                <button id="runCypherButton" class="primary-action" type="button">Run query</button>
+              </div>
+            </section>
+
+            <aside class="panel query-side-panel">
+              <div class="section-heading">
+                <h3>History</h3>
+              </div>
+              <div id="queryHistoryList" class="compact-list"></div>
+              <div class="section-heading inset">
+                <h3>Saved</h3>
+              </div>
+              <div id="savedQueriesList" class="compact-list"></div>
+            </aside>
+
+            <section class="panel query-results-panel">
+              <div class="section-heading">
+                <h3>Results</h3>
+                <span id="queryMeta" class="pill">No query run</span>
+              </div>
+              <div class="tabs" role="tablist" aria-label="Result views">
+                <button class="tab-button active" type="button" data-result-tab="table">Table</button>
+                <button class="tab-button" type="button" data-result-tab="graph">Graph</button>
+                <button class="tab-button" type="button" data-result-tab="json">JSON</button>
+                <button class="tab-button" type="button" data-result-tab="raw">Raw</button>
+              </div>
+              <div id="tableResultPanel" class="result-panel active">
+                <div id="cypherResults" class="data-table"></div>
+              </div>
+              <div id="graphResultPanel" class="result-panel">
+                <section class="graph-stage compact" aria-label="Query result graph">
+                  <svg id="queryGraphSvg" role="img" aria-label="Query graph"></svg>
+                </section>
+              </div>
+              <div id="jsonResultPanel" class="result-panel">
+                <pre id="jsonResults" class="json-viewer"></pre>
+              </div>
+              <div id="rawResultPanel" class="result-panel">
+                <pre id="rawResults" class="json-viewer"></pre>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="explorePanel" class="view-panel">
+          <div class="explore-layout">
+            <section class="panel explore-controls">
+              <div class="section-heading">
+                <h3>Explore Graph</h3>
+                <span id="exploreMeta" class="pill">Ready</span>
+              </div>
+              <div class="inline-fields">
+                <label>
+                  Node table
+                  <select id="exploreTable"></select>
+                </label>
+                <label>
+                  Depth
+                  <input id="exploreDepth" type="number" min="1" max="3" value="1" />
+                </label>
+                <label>
+                  Limit
+                  <input id="exploreLimit" type="number" min="10" max="500" value="100" />
+                </label>
+              </div>
+              <div class="button-row">
+                <button id="resetGraphButton" class="ghost-action" type="button">Reset layout</button>
+                <button id="fitGraphButton" class="ghost-action" type="button">Fit</button>
+                <button id="runExploreButton" class="primary-action" type="button">Explore</button>
+              </div>
+              <p id="exploreWarning" class="warning-text" hidden></p>
+            </section>
+            <section class="graph-stage" aria-label="Knowledge graph visualizer">
+              <svg id="exploreGraphSvg" role="img" aria-label="Knowledge graph"></svg>
+            </section>
+            <aside class="details-panel">
+              <h3>Selection</h3>
+              <div id="selectionDetails" class="details-body muted">Select a node or relationship.</div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="importPanel" class="view-panel">
+          <form id="importForm" class="import-layout">
+            <section class="panel form-main">
+              <div class="section-heading">
+                <h3>Document Import</h3>
+                <span class="pill">Safe structured write</span>
+              </div>
               <label>
                 Document title
                 <input name="title" placeholder="Customer onboarding runbook" required />
@@ -120,11 +269,11 @@
                 <textarea name="summary" rows="3" placeholder="Short summary for search and review"></textarea>
               </label>
               <label>
-                Knowledge text
-                <textarea name="body" rows="13" placeholder="Paste the document, notes, or source text here" required></textarea>
+                Source text or CSV notes
+                <textarea name="body" rows="13" placeholder="Paste source text, CSV notes, or a runbook here" required></textarea>
               </label>
             </section>
-            <aside class="builder-side">
+            <aside class="panel import-side">
               <label>
                 Topics
                 <input name="topics" placeholder="Deployment, Support, Security" />
@@ -139,75 +288,49 @@
               </label>
               <div class="button-row">
                 <button id="suggestButton" class="ghost-action" type="button">Suggest entities</button>
-                <button class="primary-action" type="submit">Create graph</button>
+                <button id="previewImportButton" class="ghost-action" type="button">Preview</button>
+                <button class="primary-action" type="submit">Run import</button>
               </div>
+              <div id="importPreview" class="import-preview"></div>
             </aside>
           </form>
         </section>
 
-        <section id="explorePanel" class="view-panel">
-          <div class="explore-layout">
-            <section class="graph-toolbar" aria-label="Graph filters">
-              <button class="filter-button active" type="button" data-filter="all">All</button>
-              <button class="filter-button" type="button" data-filter="Document">Documents</button>
-              <button class="filter-button" type="button" data-filter="Chunk">Chunks</button>
-              <button class="filter-button" type="button" data-filter="Entity">Entities</button>
-              <button class="filter-button" type="button" data-filter="Topic">Topics</button>
-            </section>
-            <section class="graph-stage" aria-label="Knowledge graph visualizer">
-              <svg id="graphSvg" role="img" aria-label="Knowledge graph"></svg>
-            </section>
-            <aside class="details-panel">
-              <h3>Selection</h3>
-              <div id="selectionDetails" class="details-body muted">Select a graph node or edge.</div>
-            </aside>
-          </div>
+        <section id="logsPanel" class="view-panel">
+          <section class="panel">
+            <div class="section-heading">
+              <h3>Jobs / Logs</h3>
+              <button id="clearLogsButton" class="ghost-action" type="button">Clear local history</button>
+            </div>
+            <div id="logsTable" class="data-table"></div>
+          </section>
         </section>
 
-        <section id="queryPanel" class="view-panel">
-          <div class="query-layout">
-            <section class="query-editor">
-              <label>
-                Read-only Cypher
-                <textarea id="cypherInput" rows="10">MATCH (a:Entity)-[r:RELATED_TO]->(b:Entity) RETURN a.name AS fromEntity, r.relation AS relation, b.name AS toEntity</textarea>
-              </label>
-              <div class="button-row">
-                <button id="runCypherButton" class="primary-action" type="button">Run query</button>
-              </div>
-            </section>
-            <section>
+        <section id="settingsPanel" class="view-panel">
+          <div class="settings-grid">
+            <section class="panel">
               <div class="section-heading">
-                <h3>Results</h3>
-                <span id="cypherCount" class="pill">0 rows</span>
+                <h3>Connection</h3>
+                <span id="settingsStatus" class="status-chip neutral">Checking</span>
               </div>
-              <div id="cypherResults" class="data-table"></div>
+              <div id="settingsContent" class="details-body"></div>
             </section>
-          </div>
-        </section>
-
-        <section id="askPanel" class="view-panel">
-          <div class="ask-layout">
-            <section>
-              <label>
-                Question
-                <textarea id="questionInput" rows="5" placeholder="How does the context graph help deployment?"></textarea>
-              </label>
-              <div class="button-row">
-                <button id="askButton" class="primary-action" type="button">Build context</button>
-              </div>
-            </section>
-            <section>
+            <section class="panel">
               <div class="section-heading">
-                <h3>Evidence Pack</h3>
-                <span id="answerCount" class="pill">0 matches</span>
+                <h3>Safety</h3>
               </div>
-              <div id="answerContext" class="evidence-list"></div>
+              <div class="safety-list">
+                <span>Read-only query editor</span>
+                <span>Structured import endpoint</span>
+                <span>Session cookie authentication</span>
+                <span>No browser shell execution</span>
+              </div>
             </section>
           </div>
         </section>
       </section>
     </div>
 
-    <script type="module" src="/app.js?v=3"></script>
+    <script type="module" src="/app.js?v=10"></script>
   </body>
 </html>

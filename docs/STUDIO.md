@@ -1,6 +1,8 @@
-# Kuzu Studio
+# Kuzu Graph Console
 
-Kuzu Studio is the built-in web app for creating, viewing, and querying the same embedded Kuzu knowledge graph exposed by the MCP server.
+Kuzu Graph Console is the built-in web app for opening, inspecting, querying, importing into, and visually exploring the same embedded Kuzu knowledge graph exposed by the MCP server.
+
+For a beginner-friendly product walkthrough, start with [Kuzu Graph Console User Guide](./USER_GUIDE.md).
 
 ## Run It
 
@@ -32,7 +34,7 @@ admin@example.com / kuzu
 
 Follow this path when you want to create a new knowledge graph from source text such as a runbook, FAQ, support note, product document, or internal wiki page.
 
-### 1. Start Kuzu Studio
+### 1. Start Kuzu Graph Console
 
 Run the app:
 
@@ -52,9 +54,9 @@ Sign in with the local default credentials:
 admin@example.com / kuzu
 ```
 
-### 2. Open The Build Screen
+### 2. Open Import Data
 
-In the left navigation, choose **Build**.
+In the left navigation, choose **Import Data**.
 
 This screen creates a document-centered graph:
 
@@ -124,11 +126,11 @@ From Entity | RELATION | To Entity | Evidence
 
 The `From Entity` and `To Entity` values must match entities that already exist in the graph or entities you are creating in the same form.
 
-### 7. Create The Graph
+### 7. Preview And Run The Import
 
-Click **Create graph**.
+Click **Preview** to validate the import plan, then click **Run import**.
 
-Kuzu Studio will:
+Kuzu Graph Console will:
 
 1. create a `Document` node
 2. split the source text into `Chunk` nodes
@@ -139,14 +141,16 @@ Kuzu Studio will:
 7. connect chunks to entities with `MENTIONS`
 8. create entity-to-entity `RELATED_TO` relationships
 
-After creation, the app switches to **Explore** and selects the new document.
+After creation, the app switches to **Explore Graph** and selects the new document.
 
 ### 8. Inspect The Visual Graph
 
-Use **Explore** to review the graph visually.
+Use **Explore Graph** to review the graph visually.
 
-- Choose **All** to see the full graph.
-- Choose **Documents**, **Chunks**, **Entities**, or **Topics** to focus the view.
+- Choose a node table such as `Document`, `Chunk`, `Entity`, or `Topic`.
+- Set depth from `1` to `3`.
+- Set a result limit.
+- Click **Explore**.
 - Select a document node to load its chunks, entities, and topics.
 - Select an entity node to load its neighborhood and supporting chunks.
 
@@ -160,7 +164,7 @@ For example:
 API Key
 ```
 
-Selecting a search result opens the matching node in **Explore**.
+Selecting a search result opens the matching node in **Explore Graph**.
 
 ### 10. Query With Cypher
 
@@ -184,22 +188,16 @@ LIMIT 20
 
 The app blocks mutating Cypher in this screen, so it is safe for inspection.
 
-### 11. Ask A Natural-Language Question
+### 11. Review Jobs And Logs
 
-Open **Ask** and enter a question:
-
-```text
-How does the customer portal use API keys?
-```
-
-Click **Build context**. The app searches the graph and returns an evidence pack that can be used by an AI assistant or reviewed directly.
+Open **Jobs / Logs** to inspect recent queries, imports, database open events, duration, row counts, and errors.
 
 ## App Settings
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `KG_APP_HOST` | `127.0.0.1` | HTTP host for the Studio app |
-| `KG_APP_PORT` | `8787` | HTTP port for the Studio app |
+| `KG_APP_HOST` | `127.0.0.1` | HTTP host for the console app |
+| `KG_APP_PORT` | `8787` | HTTP port for the console app |
 | `KG_APP_USER` | `admin@example.com` | Login email |
 | `KG_APP_PASSWORD` | `kuzu` | Login password |
 | `KUZU_DB_PATH` | `./data/kuzu-demo` | Embedded Kuzu database directory |
@@ -210,10 +208,14 @@ Set `KG_APP_USER` and `KG_APP_PASSWORD` before exposing the app beyond local dev
 
 ## Workflows
 
-- **Build**: paste knowledge text, add topics, add entities, and create relationships in one submit.
-- **Explore**: inspect documents, chunks, entities, topics, and relationship edges visually.
-- **Query**: run guarded read-only Cypher against Kuzu.
-- **Ask**: build a graph-backed evidence pack for a natural-language question.
+- **Overview**: database status, graph counts, topic coverage, and recent activity.
+- **Databases**: configured database card with open, query, explore, schema, and disconnect actions.
+- **Schema**: node and relationship tables, properties, primary keys, and generated sample queries.
+- **Query**: guarded read-only Cypher workspace with table, graph, JSON, and raw result views.
+- **Explore Graph**: table/depth/limit controls that generate safe graph exploration queries internally.
+- **Import Data**: safe document-centered import flow with preview and structured writes.
+- **Jobs / Logs**: recent queries, imports, database actions, durations, row counts, and errors.
+- **Settings**: connection summary and safety posture.
 
 Entity lines use this shape:
 
@@ -235,10 +237,21 @@ The web UI calls these local JSON endpoints:
 | --- | --- | --- |
 | `POST` | `/api/login` | Create a local session |
 | `POST` | `/api/logout` | Clear the local session |
+| `GET` | `/status` | Server and database health |
+| `GET` | `/api/status` | Authenticated server and database health |
+| `GET` | `/api/databases` | Configured database registry |
+| `POST` | `/api/databases/default/open` | Open/connect the configured database |
+| `POST` | `/api/databases/default/disconnect` | Record a disconnect request for the embedded database |
 | `GET` | `/api/overview` | Counts, topics, and relationship examples |
+| `GET` | `/api/schema` | Schema, counts, and examples |
+| `GET` | `/api/schema-details` | Node/relationship tables, properties, and generated queries |
 | `GET` | `/api/graph` | Nodes and edges for visualization |
 | `GET` | `/api/search?q=...` | Search documents, chunks, entities, and topics |
+| `POST` | `/api/import/preview` | Validate and preview a structured import |
 | `POST` | `/api/documents` | Create a document-centered knowledge graph |
 | `POST` | `/api/relationships` | Create an entity relationship |
 | `POST` | `/api/cypher` | Run guarded read-only Cypher |
+| `POST` | `/api/explore` | Generate and run a safe graph exploration request |
+| `GET` | `/api/logs` | Read local job/query history |
+| `DELETE` | `/api/logs` | Clear local job/query history |
 | `POST` | `/api/question` | Build a graph-backed evidence pack |
