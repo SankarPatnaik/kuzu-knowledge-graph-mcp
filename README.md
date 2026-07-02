@@ -105,6 +105,8 @@ admin@example.com / kuzu
 
 Studio guide: [docs/STUDIO.md](./docs/STUDIO.md)
 
+To create a new graph from pasted documents or notes, follow the step-by-step walkthrough in [Create Your First Knowledge Graph](./docs/STUDIO.md#create-your-first-knowledge-graph).
+
 ## Run The MCP Server
 
 Development:
