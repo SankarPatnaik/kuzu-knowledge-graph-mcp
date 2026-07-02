@@ -168,6 +168,10 @@ function tutorialRoute(pathname: string): { id: string; action: string } | null 
   };
 }
 
+function normalizeApiPath(pathname: string): string {
+  return pathname.length > 1 ? pathname.replace(/\/+$/g, '') : pathname;
+}
+
 function addLog(entry: Omit<QueryLog, 'id' | 'createdAt'>): QueryLog {
   const log = {
     ...entry,
@@ -203,8 +207,9 @@ function knowledgeGraphDraftFromBody(body: Record<string, unknown>) {
 
 async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   const method = req.method ?? 'GET';
+  const pathname = normalizeApiPath(url.pathname);
 
-  if (method === 'GET' && url.pathname === '/status') {
+  if (method === 'GET' && pathname === '/status') {
     sendJson(res, 200, {
       status: 'ok',
       product: 'Kuzu Graph Console',
@@ -214,7 +219,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
     return;
   }
 
-  if (method === 'GET' && url.pathname === '/api/session') {
+  if (method === 'GET' && pathname === '/api/session') {
     const session = getSession(req);
     sendJson(res, 200, {
       authenticated: Boolean(session),
@@ -224,7 +229,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
     return;
   }
 
-  if (method === 'POST' && url.pathname === '/api/login') {
+  if (method === 'POST' && pathname === '/api/login') {
     const body = await readJson(req);
     const email = stringValue(body.email).trim();
     const password = stringValue(body.password);
@@ -246,29 +251,29 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
     return;
   }
 
-  if (method === 'POST' && url.pathname === '/api/logout') {
+  if (method === 'POST' && pathname === '/api/logout') {
     clearSession(req);
     res.setHeader('set-cookie', `${sessionCookie}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
     sendJson(res, 200, { authenticated: false });
     return;
   }
 
-  if (method === 'GET' && url.pathname === '/api/tutorials') {
+  if (method === 'GET' && pathname === '/api/tutorials') {
     sendJson(res, 200, tutorialService.listTutorials());
     return;
   }
 
-  if (method === 'GET' && url.pathname === '/api/tutorials/progress') {
+  if (method === 'GET' && pathname === '/api/tutorials/progress') {
     sendJson(res, 200, tutorialService.getTutorialProgress());
     return;
   }
 
-  if (method === 'POST' && url.pathname === '/api/tutorials/sync-official') {
+  if (method === 'POST' && pathname === '/api/tutorials/sync-official') {
     sendJson(res, 200, tutorialService.syncOfficialKuzuTutorials());
     return;
   }
 
-  const tutorial = tutorialRoute(url.pathname);
+  const tutorial = tutorialRoute(pathname);
   if (tutorial) {
     if (method === 'GET' && tutorial.action === '') {
       sendJson(res, 200, tutorialService.getTutorial(tutorial.id));

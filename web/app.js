@@ -39,6 +39,17 @@ const views = {
 
 const nodeOrder = ['Document', 'Chunk', 'Entity', 'Topic'];
 const savedQueryKey = 'kuzu-console-saved-queries';
+const defaultTutorialTopics = [
+  'Getting Started',
+  'Data Import',
+  'Cypher Basics',
+  'Graph Modeling',
+  'Network Analysis',
+  'Python',
+  'JavaScript / Node.js',
+  'Marimo / Notebook',
+  'Advanced Queries',
+];
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -185,13 +196,21 @@ function messageFromError(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function serviceErrorMessage(name, error) {
+  const message = messageFromError(error);
+  if (name === 'tutorials' && /API route not found|404/i.test(message)) {
+    return 'Tutorial API route is missing on the running backend. Restart the Kuzu Graph Console server after rebuilding so /api/tutorials is available.';
+  }
+  return message;
+}
+
 async function loadService(name, request, fallback) {
   try {
     const data = await request;
     delete state.serviceErrors[name];
     return data;
   } catch (error) {
-    state.serviceErrors[name] = messageFromError(error);
+    state.serviceErrors[name] = serviceErrorMessage(name, error);
     return fallback;
   }
 }
@@ -256,7 +275,7 @@ async function refreshAll() {
   state.logs = logs.logs ?? [];
   state.tutorialsData = tutorials;
   state.tutorials = tutorials.tutorials ?? [];
-  state.tutorialTopics = tutorials.topics ?? [];
+  state.tutorialTopics = tutorials.topics?.length ? tutorials.topics : defaultTutorialTopics;
   state.selectedTutorialId ??= state.tutorials[0]?.id ?? null;
   state.selectedSchema ??= firstSchemaTable()?.key ?? null;
 
@@ -644,6 +663,41 @@ function filteredTutorials() {
   });
 }
 
+function renderTutorialTopicOptions() {
+  const topics = state.tutorialTopics.length ? state.tutorialTopics : defaultTutorialTopics;
+  elements.tutorialTopicFilter.innerHTML = '<option value="all">All topics</option>';
+  for (const topic of topics) {
+    const option = document.createElement('option');
+    option.value = topic;
+    option.textContent = topic;
+    elements.tutorialTopicFilter.append(option);
+  }
+  if (state.tutorialTopicFilter !== 'all' && !topics.includes(state.tutorialTopicFilter)) {
+    state.tutorialTopicFilter = 'all';
+  }
+  elements.tutorialTopicFilter.value = state.tutorialTopicFilter;
+}
+
+function focusTutorialByTopic(topic) {
+  state.tutorialSearch = '';
+  state.tutorialTopicFilter = topic;
+
+  const match = state.tutorials.find((tutorial) => (tutorial.tags ?? []).includes(topic));
+  if (match) {
+    state.selectedTutorialId = match.id;
+    state.practiceResult = null;
+    state.practiceError = null;
+  }
+
+  switchView('learn');
+  renderLearn();
+  document.querySelector(match ? '#tutorialDetail' : '#tutorialCatalog')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  if (!match) {
+    toast(state.serviceErrors.tutorials ?? `No tutorials found for ${topic}.`);
+  }
+}
+
 function renderLearn() {
   if (!elements.tutorialCatalog) {
     return;
@@ -655,6 +709,7 @@ function renderLearn() {
     <article><strong>${escapeHtml(progress.tutorialsStarted ?? 0)}</strong><span>Started</span></article>
     <article><strong>${escapeHtml(progress.practiceQueriesRun ?? 0)}</strong><span>Practice queries</span></article>
   `;
+  renderTutorialTopicOptions();
 
   if (state.serviceErrors.tutorials && state.tutorials.length === 0) {
     elements.tutorialCount.textContent = 'Unavailable';
@@ -669,15 +724,6 @@ function renderLearn() {
     return;
   }
 
-  if (elements.tutorialTopicFilter.options.length <= 1) {
-    elements.tutorialTopicFilter.innerHTML = '<option value="all">All topics</option>';
-    for (const topic of state.tutorialTopics) {
-      const option = document.createElement('option');
-      option.value = topic;
-      option.textContent = topic;
-      elements.tutorialTopicFilter.append(option);
-    }
-  }
   elements.tutorialTopicFilter.value = state.tutorialTopicFilter;
   elements.tutorialSearch.value = state.tutorialSearch;
 
@@ -1651,6 +1697,7 @@ document.addEventListener('click', async (event) => {
     state.practiceResult = null;
     state.practiceError = null;
     renderLearn();
+    document.querySelector('#tutorialDetail')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   if (target.dataset.tutorialLoad) {
@@ -1691,9 +1738,7 @@ document.addEventListener('click', async (event) => {
   }
 
   if (target.dataset.learnFocus) {
-    state.tutorialTopicFilter = target.dataset.learnFocus;
-    switchView('learn');
-    renderLearn();
+    focusTutorialByTopic(target.dataset.learnFocus);
   }
 
   if (target.dataset.learnSection) {
