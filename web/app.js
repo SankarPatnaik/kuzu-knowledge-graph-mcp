@@ -16,11 +16,13 @@ const state = {
   selectedTutorialId: null,
   tutorialBusy: null,
   practiceResult: null,
+  practiceError: null,
   practiceTab: 'table',
   logs: [],
   selectedSchema: null,
   selectedId: null,
   graphViews: {},
+  serviceErrors: {},
 };
 
 const views = {
@@ -179,6 +181,21 @@ async function api(path, options = {}) {
   return data;
 }
 
+function messageFromError(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function loadService(name, request, fallback) {
+  try {
+    const data = await request;
+    delete state.serviceErrors[name];
+    return data;
+  } catch (error) {
+    state.serviceErrors[name] = messageFromError(error);
+    return fallback;
+  }
+}
+
 function statusClass(status) {
   if (status === 'connected' || status === 'success' || status === 'ok') {
     return 'success';
@@ -220,12 +237,16 @@ async function boot() {
 
 async function refreshAll() {
   const [overview, databases, schemaDetails, graph, logs, tutorials] = await Promise.all([
-    api('/api/overview'),
-    api('/api/databases'),
-    api('/api/schema-details'),
-    api('/api/graph?limit=500'),
-    api('/api/logs'),
-    api('/api/tutorials'),
+    loadService('overview', api('/api/overview'), state.overview ?? { nodeCounts: {}, relationshipCounts: {}, topicCoverage: [] }),
+    loadService('databases', api('/api/databases'), { databases: state.databases }),
+    loadService(
+      'schema',
+      api('/api/schema-details'),
+      state.schemaDetails ?? { nodeTables: [], relationshipTables: [], summary: { nodeTableCount: 0, relationshipTableCount: 0, propertyCount: 0 }, generatedQueries: [] },
+    ),
+    loadService('graph', api('/api/graph?limit=500'), state.graph),
+    loadService('logs', api('/api/logs'), { logs: state.logs }),
+    loadService('tutorials', api('/api/tutorials'), state.tutorialsData ?? { tutorials: [], topics: [], progress: {} }),
   ]);
 
   state.overview = overview;
@@ -240,6 +261,11 @@ async function refreshAll() {
   state.selectedSchema ??= firstSchemaTable()?.key ?? null;
 
   renderAll();
+
+  const failedServices = Object.keys(state.serviceErrors);
+  if (failedServices.length > 0) {
+    toast(`Some services did not load: ${failedServices.join(', ')}`);
+  }
 }
 
 function renderAll() {
@@ -328,7 +354,9 @@ function renderOverview() {
   );
 
   elements.activityPreview.innerHTML =
-    state.logs.length === 0
+    state.serviceErrors.overview
+      ? `<p class="warning-text">Overview service failed: ${escapeHtml(state.serviceErrors.overview)}</p>`
+      : state.logs.length === 0
       ? '<p class="empty-state">No activity yet.</p>'
       : state.logs
           .slice(0, 5)
@@ -348,7 +376,9 @@ function renderOverview() {
 
 function renderDatabases() {
   elements.databaseCards.innerHTML =
-    state.databases.length === 0
+    state.serviceErrors.databases && state.databases.length === 0
+      ? `<p class="warning-text">Database service failed: ${escapeHtml(state.serviceErrors.databases)}</p>`
+      : state.databases.length === 0
       ? '<p class="empty-state">No configured database.</p>'
       : state.databases
           .map(
@@ -400,6 +430,17 @@ function schemaTables() {
 
 function renderSchema() {
   const details = state.schemaDetails;
+  if (state.serviceErrors.schema && (!details || schemaTables().length === 0)) {
+    elements.schemaKpiGrid.innerHTML = '';
+    elements.schemaTableCount.textContent = 'Unavailable';
+    elements.schemaTableList.innerHTML = `<p class="warning-text">Schema service failed: ${escapeHtml(state.serviceErrors.schema)}</p>`;
+    elements.schemaDetailTitle.textContent = 'Table Details';
+    elements.schemaDetailType.textContent = 'Unavailable';
+    elements.schemaDetails.innerHTML = '<p class="empty-state">Schema details are unavailable.</p>';
+    elements.schemaQueries.innerHTML = '';
+    return;
+  }
+
   if (!details) {
     elements.schemaDetails.innerHTML = '<p class="empty-state">Schema has not loaded.</p>';
     return;
@@ -532,6 +573,14 @@ function renderQueryResult() {
 }
 
 function renderExplore() {
+  if (state.serviceErrors.graph && state.graph.nodes.length === 0 && !state.exploreResult) {
+    elements.exploreMeta.textContent = 'Unavailable';
+    elements.exploreWarning.hidden = false;
+    elements.exploreWarning.textContent = `Graph service failed: ${state.serviceErrors.graph}`;
+    renderGraphCanvas(elements.exploreGraphSvg, { nodes: [], edges: [] }, { detailMode: 'panel' });
+    return;
+  }
+
   if (elements.exploreTable.options.length === 0 && state.schemaDetails?.nodeTables) {
     elements.exploreTable.innerHTML = state.schemaDetails.nodeTables.map((table) => `<option value="${escapeHtml(table.name)}">${escapeHtml(table.name)}</option>`).join('');
   }
@@ -546,6 +595,11 @@ function renderExplore() {
 
 function renderLogs() {
   renderQueryLists();
+  if (state.serviceErrors.logs && state.logs.length === 0) {
+    elements.logsTable.innerHTML = `<p class="warning-text">Logs service failed: ${escapeHtml(state.serviceErrors.logs)}</p>`;
+    return;
+  }
+
   renderTable(
     elements.logsTable,
     state.logs.map((log) => ({
@@ -601,6 +655,19 @@ function renderLearn() {
     <article><strong>${escapeHtml(progress.tutorialsStarted ?? 0)}</strong><span>Started</span></article>
     <article><strong>${escapeHtml(progress.practiceQueriesRun ?? 0)}</strong><span>Practice queries</span></article>
   `;
+
+  if (state.serviceErrors.tutorials && state.tutorials.length === 0) {
+    elements.tutorialCount.textContent = 'Unavailable';
+    elements.tutorialCatalog.innerHTML = `<p class="warning-text">Tutorial service failed: ${escapeHtml(state.serviceErrors.tutorials)}</p>`;
+    elements.tutorialDifficulty.textContent = 'Unavailable';
+    elements.tutorialDetail.innerHTML = '<p class="empty-state">Tutorials are unavailable. Other console pages can still be used.</p>';
+    elements.practiceStatus.textContent = 'Unavailable';
+    elements.practiceSteps.innerHTML = '<p class="empty-state">Practice data is unavailable because tutorials did not load.</p>';
+    elements.practiceQueries.innerHTML = '';
+    elements.tutorialDataManager.innerHTML = '<p class="empty-state">No tutorial datasets available.</p>';
+    renderPracticeResult();
+    return;
+  }
 
   if (elements.tutorialTopicFilter.options.length <= 1) {
     elements.tutorialTopicFilter.innerHTML = '<option value="all">All topics</option>';
@@ -781,15 +848,17 @@ function renderPracticeResult() {
     elements.practiceMeta.textContent = 'No query run';
     elements.practiceResults.innerHTML = '<p class="empty-state">Load a dataset and run a practice query.</p>';
     elements.practiceJsonResults.textContent = '';
-    elements.practiceLogs.textContent = 'Practice query logs will appear here.';
+    elements.practiceLogs.textContent = state.practiceError ?? 'Practice query logs will appear here.';
     renderGraphCanvas(elements.practiceGraphSvg, { nodes: [], edges: [] }, { detailMode: 'toast' });
     return;
   }
 
-  elements.practiceMeta.textContent = `${result.rowCount ?? 0} rows · ${result.executionMs ?? 0} ms`;
+  elements.practiceMeta.textContent = result.error ? 'Error' : `${result.rowCount ?? 0} rows · ${result.executionMs ?? 0} ms`;
   renderTable(elements.practiceResults, result.rows ?? []);
   elements.practiceJsonResults.textContent = JSON.stringify(result.rows ?? [], null, 2);
-  elements.practiceLogs.textContent = JSON.stringify({ query: result.query, practice: result.practice, rowCount: result.rowCount, executionMs: result.executionMs }, null, 2);
+  elements.practiceLogs.textContent = result.error
+    ? result.error
+    : JSON.stringify({ query: result.query, practice: result.practice, rowCount: result.rowCount, executionMs: result.executionMs }, null, 2);
   renderGraphCanvas(elements.practiceGraphSvg, normalizeGraph(result.graph ?? { nodes: [], edges: [] }), { detailMode: 'toast' });
 }
 
@@ -1317,8 +1386,15 @@ async function loadTutorialDataset(id = state.selectedTutorialId) {
   renderLearn();
   try {
     const result = await api(`/api/tutorials/${encodeURIComponent(id)}/load-data`, { method: 'POST', body: '{}' });
+    state.practiceError = null;
+    state.practiceResult = null;
     await reloadTutorials();
     toast(result.message ?? 'Practice dataset loaded.');
+  } catch (error) {
+    state.practiceError = messageFromError(error);
+    state.practiceTab = 'logs';
+    renderPracticeResult();
+    throw error;
   } finally {
     state.tutorialBusy = null;
     renderLearn();
@@ -1335,8 +1411,14 @@ async function resetTutorialDataset(id = state.selectedTutorialId) {
   try {
     const result = await api(`/api/tutorials/${encodeURIComponent(id)}/reset`, { method: 'POST', body: '{}' });
     state.practiceResult = null;
+    state.practiceError = null;
     await reloadTutorials();
     toast(result.message ?? 'Practice sandbox reset.');
+  } catch (error) {
+    state.practiceError = messageFromError(error);
+    state.practiceTab = 'logs';
+    renderPracticeResult();
+    throw error;
   } finally {
     state.tutorialBusy = null;
     renderLearn();
@@ -1362,22 +1444,31 @@ async function runPracticeQuery() {
       method: 'POST',
       body: JSON.stringify({ query }),
     });
+    state.practiceError = null;
     state.practiceTab = 'table';
     renderPracticeResult();
     await loadLogs();
   } catch (error) {
+    const message = messageFromError(error);
+    state.practiceResult = {
+      rowCount: 0,
+      executionMs: 0,
+      rows: [],
+      graph: { nodes: [], edges: [] },
+      error: message,
+    };
+    state.practiceError = message;
     elements.practiceMeta.textContent = 'Error';
-    elements.practiceLogs.textContent = error.message;
     state.practiceTab = 'logs';
     renderPracticeResult();
-    toast(error.message);
+    toast(message);
   } finally {
     elements.runPracticeQueryButton.disabled = false;
   }
 }
 
 async function reloadTutorials() {
-  const tutorials = await api('/api/tutorials');
+  const tutorials = await loadService('tutorials', api('/api/tutorials'), state.tutorialsData ?? { tutorials: [], topics: [], progress: {} });
   state.tutorialsData = tutorials;
   state.tutorials = tutorials.tutorials ?? [];
   state.tutorialTopics = tutorials.topics ?? [];
@@ -1540,6 +1631,7 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  try {
   if (target.dataset.viewLink) {
     switchView(target.dataset.viewLink);
   }
@@ -1557,6 +1649,7 @@ document.addEventListener('click', async (event) => {
   if (target.dataset.tutorialSelect) {
     state.selectedTutorialId = target.dataset.tutorialSelect;
     state.practiceResult = null;
+    state.practiceError = null;
     renderLearn();
   }
 
@@ -1624,6 +1717,9 @@ document.addEventListener('click', async (event) => {
     const result = await api('/api/databases/default/disconnect', { method: 'POST', body: '{}' });
     await loadLogs();
     toast(result.message ?? 'Disconnect requested.');
+  }
+  } catch (error) {
+    toast(messageFromError(error));
   }
 });
 

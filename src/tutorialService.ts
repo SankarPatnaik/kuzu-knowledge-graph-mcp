@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { KuzuGraph } from './kuzuGraph.js';
@@ -8,6 +9,7 @@ import type { JsonValue } from './types.js';
 type PracticeState = {
   service: KnowledgeGraphService;
   loadedAt: string;
+  runId: string;
 };
 
 type TutorialProgress = {
@@ -81,20 +83,21 @@ export class TutorialService {
     }
 
     await this.resetTutorialDataset(id);
-    const service = await this.createPracticeService(id);
+    const runId = this.newRunId();
+    const service = await this.createPracticeService(id, runId);
     for (const document of tutorial.dataset.documents) {
       await service.createKnowledgeGraph(document);
     }
 
     const loadedAt = new Date().toISOString();
-    this.practice.set(id, { service, loadedAt });
+    this.practice.set(id, { service, loadedAt, runId });
     this.progress.started.add(id);
 
     return {
       tutorialId: id,
       loaded: true,
       loadedAt,
-      storage: this.storageLabel(id),
+      storage: this.storageLabel(id, runId),
       message: 'Practice dataset loaded into an isolated sandbox database.',
       overview: await service.overview(),
     };
@@ -184,10 +187,10 @@ export class TutorialService {
     return tutorial;
   }
 
-  private async createPracticeService(id: string): Promise<KnowledgeGraphService> {
+  private async createPracticeService(id: string, runId: string): Promise<KnowledgeGraphService> {
     const service = new KnowledgeGraphService(
       new KuzuGraph({
-        dbPath: this.practicePath(id),
+        dbPath: this.practicePath(id, runId),
         autoCreateSchema: true,
         autoSeed: false,
       }),
@@ -201,18 +204,23 @@ export class TutorialService {
     return {
       loaded: Boolean(state),
       loadedAt: state?.loadedAt ?? null,
-      storage: this.storageLabel(id),
+      storage: this.storageLabel(id, state?.runId),
       isolated: true,
       warning: 'Practice datasets are loaded into an isolated sandbox database and will not modify your active database.',
     };
   }
 
-  private practicePath(id: string): string {
+  private practicePath(id: string, runId?: string): string {
     const safeId = id.replace(/[^a-z0-9-]/gi, '-');
-    return path.join(this.rootDir, safeId);
+    return runId ? path.join(this.rootDir, safeId, runId) : path.join(this.rootDir, safeId);
   }
 
-  private storageLabel(id: string): string {
-    return `.kuzu-practice/${id.replace(/[^a-z0-9-]/gi, '-')}`;
+  private storageLabel(id: string, runId?: string): string {
+    const safeId = id.replace(/[^a-z0-9-]/gi, '-');
+    return runId ? `.kuzu-practice/${safeId}/${runId}` : `.kuzu-practice/${safeId}`;
+  }
+
+  private newRunId(): string {
+    return `run-${Date.now()}-${randomUUID().slice(0, 8)}`;
   }
 }
