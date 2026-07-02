@@ -1,8 +1,10 @@
 # Kuzu Graph Console
 
-Kuzu Graph Console is the built-in web app for opening, inspecting, querying, importing into, and visually exploring the same embedded Kuzu knowledge graph exposed by the MCP server.
+Kuzu Graph Console is the built-in web app for opening, inspecting, learning, querying, importing into, and visually exploring the same embedded Kuzu knowledge graph exposed by the MCP server.
 
 For a beginner-friendly product walkthrough, start with [Kuzu Graph Console User Guide](./USER_GUIDE.md).
+
+For the in-app tutorial center, see [Learn & Practice Guide](./LEARN_AND_PRACTICE.md).
 
 ## Run It
 
@@ -192,6 +194,35 @@ The app blocks mutating Cypher in this screen, so it is safe for inspection.
 
 Open **Jobs / Logs** to inspect recent queries, imports, database open events, duration, row counts, and errors.
 
+## Learn And Practice Tutorials
+
+Use **Learn & Practice** when you want guided Kuzu examples without using the command line.
+
+The tutorial center includes:
+
+- searchable tutorial catalog
+- topic filters
+- tutorial detail panel
+- schema preview
+- step-by-step instructions
+- sample data manager
+- isolated practice databases under `.kuzu-practice/<tutorial-id>/`
+- read-only practice query execution
+- table, graph, JSON, and log result tabs
+- source attribution back to `kuzudb/tutorials`
+
+First practice run:
+
+1. Open **Learn & Practice**.
+2. Choose **Getting Started with KuzuDB**.
+3. Click **Load Dataset**.
+4. Pick a sample query.
+5. Click **Run practice query**.
+6. Review **Table** and **JSON**.
+7. Use **Open in Query Editor** to continue in the main query workspace.
+
+Practice datasets are isolated from the active database and can be reset safely.
+
 ## App Settings
 
 | Variable | Default | Meaning |
@@ -212,6 +243,7 @@ Set `KG_APP_USER` and `KG_APP_PASSWORD` before exposing the app beyond local dev
 - **Databases**: configured database card with open, query, explore, schema, and disconnect actions.
 - **Schema**: node and relationship tables, properties, primary keys, and generated sample queries.
 - **Query**: guarded read-only Cypher workspace with table, graph, JSON, and raw result views.
+- **Learn & Practice**: tutorial catalog, guided steps, isolated practice datasets, sample queries, and progress.
 - **Explore Graph**: table/depth/limit controls that generate safe graph exploration queries internally.
 - **Import Data**: safe document-centered import flow with preview and structured writes.
 - **Jobs / Logs**: recent queries, imports, database actions, durations, row counts, and errors.
@@ -252,6 +284,16 @@ The web UI calls these local JSON endpoints:
 | `POST` | `/api/relationships` | Create an entity relationship |
 | `POST` | `/api/cypher` | Run guarded read-only Cypher |
 | `POST` | `/api/explore` | Generate and run a safe graph exploration request |
+| `GET` | `/api/tutorials` | List Learn & Practice tutorials |
+| `GET` | `/api/tutorials/progress` | Read tutorial progress |
+| `GET` | `/api/tutorials/:id` | Read tutorial detail |
+| `POST` | `/api/tutorials/:id/load-data` | Load tutorial data into an isolated practice database |
+| `POST` | `/api/tutorials/:id/reset` | Reset the tutorial practice database |
+| `POST` | `/api/tutorials/:id/query` | Run read-only Cypher against a tutorial sandbox |
+| `GET` | `/api/tutorials/:id/schema` | Read tutorial schema metadata and runtime schema |
+| `GET` | `/api/tutorials/:id/graph` | Read a tutorial sandbox graph snapshot |
+| `POST` | `/api/tutorials/:id/complete` | Mark a tutorial complete for the current process |
+| `POST` | `/api/tutorials/sync-official` | Safe placeholder for future admin-only tutorial sync |
 | `GET` | `/api/logs` | Read local job/query history |
 | `DELETE` | `/api/logs` | Clear local job/query history |
 | `POST` | `/api/question` | Build a graph-backed evidence pack |

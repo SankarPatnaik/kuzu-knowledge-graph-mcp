@@ -8,6 +8,8 @@ Kuzu Graph Console helps you:
 - create a knowledge graph from pasted text
 - inspect the database schema
 - run safe read-only Cypher queries
+- learn Kuzu concepts with guided tutorials
+- load tutorial datasets into isolated practice databases
 - view query results as tables, JSON, raw responses, or graphs
 - explore graph data visually
 - review recent jobs and errors
@@ -70,10 +72,11 @@ When you import text, the console creates these graph records for you.
 3. Sign in with `admin@example.com / kuzu`.
 4. Open **Databases** and confirm the default database is `connected`.
 5. Open **Schema** to understand the available tables.
-6. Open **Import Data** and create your first graph from pasted text.
-7. Open **Explore Graph** to visually inspect what was created.
-8. Open **Query** to run read-only Cypher.
-9. Open **Jobs / Logs** if something does not work.
+6. Open **Learn & Practice** and run a starter tutorial query.
+7. Open **Import Data** and create your first graph from pasted text.
+8. Open **Explore Graph** to visually inspect what was created.
+9. Open **Query** to run read-only Cypher.
+10. Open **Jobs / Logs** if something does not work.
 
 ## Page-By-Page Guide
 
@@ -181,6 +184,86 @@ Query tools:
 | **Format** | Lightly formats common Cypher keywords onto new lines |
 | **Save** | Saves the current query in browser local storage |
 | **Stop** | Reserved for future cancellation support |
+
+### Learn & Practice
+
+Use **Learn & Practice** when you want to learn KuzuDB concepts inside the product before working on your own data.
+
+This page includes:
+
+- a tutorial catalog
+- search and topic filters
+- step-by-step tutorial details
+- schema previews
+- sample datasets
+- a practice query workspace
+- table, graph, JSON, and log result tabs
+- a sample data manager
+- beginner concept notes
+
+Practice datasets are loaded into isolated folders:
+
+```text
+.kuzu-practice/<tutorial-id>/
+```
+
+They do not modify the active database shown on the **Databases** page.
+
+#### Run Your First Practice Tutorial
+
+1. Open **Learn & Practice**.
+2. Select **Getting Started with KuzuDB**.
+3. Click **Load Dataset**.
+4. In **Practice Query**, choose the first sample query.
+5. Click **Run practice query**.
+6. Open **Table** to see rows.
+7. Open **JSON** to see the same rows as JSON.
+8. Open **Graph** when the result includes connected graph objects.
+9. Click **Copy** beside any tutorial query if you want it on your clipboard.
+10. Click **Open in Query Editor** or **Copy to Query Editor** to continue in the main **Query** page.
+
+#### Use The Tutorial Catalog
+
+Tutorial cards show:
+
+| Field | Meaning |
+| --- | --- |
+| Title | What you will learn |
+| Difficulty | Beginner, Intermediate, or Advanced |
+| Tags | Topic filters such as `Cypher Basics` or `Network Analysis` |
+| Estimated time | Approximate completion time |
+| Dataset availability | Whether the tutorial has practice data |
+| Open Source | Link to the official Kuzu tutorial source |
+
+Use the topic filter for:
+
+- Getting Started
+- Data Import
+- Cypher Basics
+- Graph Modeling
+- Network Analysis
+- Python
+- JavaScript / Node.js
+- Marimo / Notebook
+- Advanced Queries
+
+#### Use The Practice Workspace
+
+The left side shows the tutorial steps and sample queries. The right side is a practice editor.
+
+Common actions:
+
+| Action | What It Does |
+| --- | --- |
+| **Load dataset** | Creates a clean sandbox database for the selected tutorial |
+| **Run practice query** | Runs read-only Cypher against the sandbox |
+| **Reset sandbox** | Deletes the selected tutorial sandbox |
+| **Copy** | Copies the query text |
+| **Open in Query Editor** | Opens the main Query page with the tutorial query |
+| **Open dataset graph** | Opens a graph snapshot for the tutorial sandbox |
+| **Mark complete** | Updates tutorial progress for the current app session |
+
+For the full tutorial feature reference, see [Learn & Practice Guide](./LEARN_AND_PRACTICE.md).
 
 ### Explore Graph
 
@@ -361,6 +444,16 @@ The console intentionally avoids exposing arbitrary shell commands or unrestrict
 
 ## Common Workflows
 
+### Practice Before Creating Your Own Graph
+
+1. Open **Learn & Practice**.
+2. Pick **Getting Started with KuzuDB** or **Cypher Query Practice**.
+3. Click **Load Dataset**.
+4. Run two or three sample queries.
+5. Look at the same result in **Table**, **Graph**, and **JSON**.
+6. Click **Open in Query Editor** for a query you understand.
+7. Return to **Import Data** when you are ready to add your own source text.
+
 ### Create A New Knowledge Graph
 
 1. Open **Import Data**.
@@ -435,6 +528,14 @@ The Query page only allows read-only Cypher. Mutating keywords such as `CREATE`,
 
 Use **Import Data** for supported structured writes.
 
+### Practice query says to load a dataset
+
+Open **Learn & Practice**, select the tutorial, and click **Load Dataset**. Practice queries run against a tutorial sandbox, not the active database.
+
+### Practice data looks wrong
+
+Click **Reset sandbox**, then click **Load Dataset** again. This recreates only `.kuzu-practice/<tutorial-id>/`.
+
 ### Graph is too crowded
 
 In **Explore Graph**:
@@ -460,6 +561,7 @@ Logs are local in-memory history for the running app session. They are not a per
 
 - The Query page is read-only by design.
 - Import writes are structured and validated by the backend.
+- Tutorial practice data is stored under `.kuzu-practice/` and is isolated from the active database.
 - The browser cannot run arbitrary shell commands.
 - The browser does not get unrestricted local filesystem access.
 - Change the default login before exposing the console outside local development.
@@ -472,5 +574,5 @@ After creating your first graph:
 2. Open **Query** and run a few sample queries.
 3. Open **Explore Graph** and inspect relationships.
 4. Add another document through **Import Data**.
-5. Use **Jobs / Logs** to review what happened.
-
+5. Open **Learn & Practice** when you want guided examples.
+6. Use **Jobs / Logs** to review what happened.

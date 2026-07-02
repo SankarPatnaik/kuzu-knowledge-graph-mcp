@@ -2,9 +2,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { KuzuGraph } from '../src/kuzuGraph.js';
 import { KnowledgeGraphService } from '../src/knowledgeGraphService.js';
+import { TutorialService } from '../src/tutorialService.js';
 
 const smokeDbPath = path.resolve('.tmp/smoke-kuzu');
+const smokePracticePath = path.resolve('.tmp/smoke-practice');
 await fs.rm(smokeDbPath, { recursive: true, force: true });
+await fs.rm(smokePracticePath, { recursive: true, force: true });
 
 const service = new KnowledgeGraphService(
   new KuzuGraph({
@@ -56,16 +59,35 @@ if (!snapshotNodes.some((node) => node.id === createdDocument.id)) {
   throw new Error('Smoke test expected the console-created document in the graph snapshot.');
 }
 
+const tutorialService = new TutorialService(smokePracticePath);
+const tutorialList = tutorialService.listTutorials();
+const tutorials = tutorialList.tutorials as Record<string, unknown>[];
+if (!tutorials.some((tutorial) => tutorial.id === 'getting-started-kuzu')) {
+  throw new Error('Smoke test expected the bundled getting-started-kuzu tutorial.');
+}
+
+await tutorialService.loadTutorialDataset('getting-started-kuzu');
+const tutorialQuery = await tutorialService.runTutorialQuery(
+  'getting-started-kuzu',
+  'MATCH (d:Document) RETURN d.title AS title ORDER BY d.title',
+);
+if (Number(tutorialQuery.rowCount ?? 0) === 0) {
+  throw new Error('Smoke test expected tutorial practice query rows.');
+}
+
 console.log(
   JSON.stringify(
     {
       status: 'ok',
       dbPath: smokeDbPath,
+      practicePath: smokePracticePath,
       nodeCounts: overview.nodeCounts,
       questionMatches: (questionContext.matches as unknown[]).length,
       cypherRows: safeCypher.rowCount,
       consoleDocument: createdDocument.id,
       snapshotNodes: snapshotNodes.length,
+      tutorialCount: tutorials.length,
+      tutorialPracticeRows: tutorialQuery.rowCount,
     },
     null,
     2,

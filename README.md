@@ -17,6 +17,7 @@ This project is designed for a first Kuzu journey:
 - Auto-created graph schema
 - Optional sample data seed
 - Built-in Kuzu Graph Console web app
+- In-app Learn & Practice tutorial center
 - Read-only Cypher guard
 - Six MCP tools
 - One schema resource
@@ -74,6 +75,8 @@ Expected smoke result:
 ```json
 {
   "status": "ok",
+  "tutorialCount": 5,
+  "tutorialPracticeRows": 1,
   "nodeCounts": {
     "Document": 4,
     "Chunk": 8,
@@ -85,7 +88,7 @@ Expected smoke result:
 
 ## Run Kuzu Graph Console
 
-Kuzu Graph Console is the built-in browser app for opening the configured Kuzu database, inspecting schema, running read-only Cypher, exploring graph results, importing source text, and reviewing logs.
+Kuzu Graph Console is the built-in browser app for opening the configured Kuzu database, inspecting schema, learning with tutorials, running read-only Cypher, exploring graph results, importing source text, and reviewing logs.
 
 ```bash
 npm run app:dev
@@ -105,9 +108,13 @@ admin@example.com / kuzu
 
 Beginner user guide: [docs/USER_GUIDE.md](./docs/USER_GUIDE.md)
 
+Learn & Practice guide: [docs/LEARN_AND_PRACTICE.md](./docs/LEARN_AND_PRACTICE.md)
+
 Console API/reference guide: [docs/STUDIO.md](./docs/STUDIO.md)
 
 To create a new graph from pasted documents or notes, follow [Create A New Knowledge Graph](./docs/USER_GUIDE.md#create-a-new-knowledge-graph).
+
+To learn Kuzu concepts safely before using your own data, open **Learn & Practice** and load a tutorial dataset into `.kuzu-practice/<tutorial-id>/`.
 
 ## Run The MCP Server
 
@@ -238,6 +245,8 @@ src/
   index.ts                 MCP server entrypoint
   kuzuGraph.ts             Kuzu connection and query wrapper
   knowledgeGraphService.ts Graph read operations
+  tutorialService.ts       Learn & Practice sandbox service
+  tutorials.ts             Bundled tutorial registry and sample datasets
   appServer.ts              Kuzu Graph Console HTTP API and static server
   schema.ts                Kuzu graph schema
   seedData.ts              Sample data journey
@@ -254,6 +263,7 @@ docs/
   CONSOLE_ARCHITECTURE.md
   DATA_JOURNEY.md
   DEPLOYMENT.md
+  LEARN_AND_PRACTICE.md
   STUDIO.md
   TOOLS.md
 examples/

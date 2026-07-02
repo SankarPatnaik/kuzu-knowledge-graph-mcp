@@ -6,6 +6,7 @@ import path from 'node:path';
 import { loadConfig } from './config.js';
 import { KuzuGraph } from './kuzuGraph.js';
 import { KnowledgeGraphService } from './knowledgeGraphService.js';
+import { TutorialService } from './tutorialService.js';
 
 type Session = {
   username: string;
@@ -27,6 +28,7 @@ type QueryLog = {
 const config = loadConfig();
 const graph = new KuzuGraph(config);
 const service = new KnowledgeGraphService(graph);
+const tutorialService = new TutorialService();
 const sessions = new Map<string, Session>();
 const logs: QueryLog[] = [];
 const staticRoot = path.resolve(process.cwd(), 'web');
@@ -155,6 +157,17 @@ function numberFromSearch(searchParams: URLSearchParams, name: string, fallback:
   return Number.isFinite(value) ? value : fallback;
 }
 
+function tutorialRoute(pathname: string): { id: string; action: string } | null {
+  const match = pathname.match(/^\/api\/tutorials\/([^/]+)(?:\/([^/]+))?$/);
+  if (!match) {
+    return null;
+  }
+  return {
+    id: decodeURIComponent(match[1]),
+    action: match[2] ?? '',
+  };
+}
+
 function addLog(entry: Omit<QueryLog, 'id' | 'createdAt'>): QueryLog {
   const log = {
     ...entry,
@@ -238,6 +251,100 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
     res.setHeader('set-cookie', `${sessionCookie}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
     sendJson(res, 200, { authenticated: false });
     return;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/tutorials') {
+    sendJson(res, 200, tutorialService.listTutorials());
+    return;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/tutorials/progress') {
+    sendJson(res, 200, tutorialService.getTutorialProgress());
+    return;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/tutorials/sync-official') {
+    sendJson(res, 200, tutorialService.syncOfficialKuzuTutorials());
+    return;
+  }
+
+  const tutorial = tutorialRoute(url.pathname);
+  if (tutorial) {
+    if (method === 'GET' && tutorial.action === '') {
+      sendJson(res, 200, tutorialService.getTutorial(tutorial.id));
+      return;
+    }
+
+    if (method === 'POST' && tutorial.action === 'load-data') {
+      const started = performance.now();
+      const result = await tutorialService.loadTutorialDataset(tutorial.id);
+      addLog({
+        kind: 'import',
+        status: 'success',
+        label: `Load tutorial dataset: ${tutorial.id}`,
+        durationMs: Math.round((performance.now() - started) * 100) / 100,
+      });
+      sendJson(res, 200, result);
+      return;
+    }
+
+    if (method === 'POST' && tutorial.action === 'reset') {
+      const started = performance.now();
+      const result = await tutorialService.resetTutorialDataset(tutorial.id);
+      addLog({
+        kind: 'database',
+        status: 'success',
+        label: `Reset tutorial sandbox: ${tutorial.id}`,
+        durationMs: Math.round((performance.now() - started) * 100) / 100,
+      });
+      sendJson(res, 200, result);
+      return;
+    }
+
+    if (method === 'POST' && tutorial.action === 'query') {
+      const body = await readJson(req);
+      const query = stringValue(body.query);
+      const started = performance.now();
+      try {
+        const result = await tutorialService.runTutorialQuery(tutorial.id, query);
+        addLog({
+          kind: 'query',
+          status: 'success',
+          label: `Practice query: ${tutorial.id}`,
+          query: result.query as string,
+          durationMs: Number(result.executionMs ?? Math.round((performance.now() - started) * 100) / 100),
+          rowCount: Number(result.rowCount ?? 0),
+        });
+        sendJson(res, 200, result);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        addLog({
+          kind: 'query',
+          status: 'error',
+          label: `Practice query: ${tutorial.id}`,
+          query,
+          durationMs: Math.round((performance.now() - started) * 100) / 100,
+          error: message,
+        });
+        throw error;
+      }
+      return;
+    }
+
+    if (method === 'GET' && tutorial.action === 'schema') {
+      sendJson(res, 200, await tutorialService.getTutorialSchema(tutorial.id));
+      return;
+    }
+
+    if (method === 'GET' && tutorial.action === 'graph') {
+      sendJson(res, 200, await tutorialService.tutorialGraph(tutorial.id));
+      return;
+    }
+
+    if (method === 'POST' && tutorial.action === 'complete') {
+      sendJson(res, 200, tutorialService.markTutorialComplete(tutorial.id));
+      return;
+    }
   }
 
   if (method === 'GET' && url.pathname === '/api/status') {

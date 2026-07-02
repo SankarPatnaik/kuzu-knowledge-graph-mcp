@@ -2,6 +2,7 @@ node_modules/
 dist/
 .tmp/
 .pnpm-store/
+.kuzu-practice/
 .env
 .DS_Store
 npm-debug.log*
