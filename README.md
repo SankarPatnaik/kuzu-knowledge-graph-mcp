@@ -16,6 +16,7 @@ This project is designed for a first Kuzu journey:
 - Embedded Kuzu database connection
 - Auto-created graph schema
 - Optional sample data seed
+- Built-in Kuzu Studio web app
 - Read-only Cypher guard
 - Six MCP tools
 - One schema resource
@@ -34,6 +35,16 @@ AI Client
   | MCP stdio
   v
 Kuzu Knowledge Graph MCP Server
+  |
+  | Kuzu Node.js API
+  v
+Embedded Kuzu DB directory
+
+Browser
+  |
+  | HTTP JSON + static UI
+  v
+Kuzu Studio App
   |
   | Kuzu Node.js API
   v
@@ -71,6 +82,28 @@ Expected smoke result:
   }
 }
 ```
+
+## Run Kuzu Studio
+
+Kuzu Studio is the built-in browser app for creating, visualizing, searching, and querying the graph.
+
+```bash
+npm run app:dev
+```
+
+Open:
+
+```text
+http://127.0.0.1:8787
+```
+
+Default local login:
+
+```text
+admin@example.com / kuzu
+```
+
+Studio guide: [docs/STUDIO.md](./docs/STUDIO.md)
 
 ## Run The MCP Server
 
@@ -201,9 +234,14 @@ src/
   index.ts                 MCP server entrypoint
   kuzuGraph.ts             Kuzu connection and query wrapper
   knowledgeGraphService.ts Graph read operations
+  appServer.ts              Kuzu Studio HTTP API and static server
   schema.ts                Kuzu graph schema
   seedData.ts              Sample data journey
   cypher.ts                Read-only Cypher validation
+web/
+  index.html
+  styles.css
+  app.js
 scripts/
   seed.ts                  Reset and seed the demo graph
   smoke.ts                 Build confidence test

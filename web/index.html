@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kuzu Studio</title>
+    <link rel="stylesheet" href="/styles.css?v=3" />
+  </head>
+  <body>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <main id="loginView" class="login-view">
+      <section class="login-brand" aria-label="Kuzu Studio">
+        <div class="brand-lockup">
+          <div class="brand-mark">K</div>
+          <div>
+            <h1>Kuzu Studio</h1>
+            <p>Embedded knowledge graph workspace</p>
+          </div>
+        </div>
+        <div class="network-preview" aria-hidden="true">
+          <span class="node n1"></span>
+          <span class="node n2"></span>
+          <span class="node n3"></span>
+          <span class="node n4"></span>
+          <span class="edge e1"></span>
+          <span class="edge e2"></span>
+          <span class="edge e3"></span>
+        </div>
+      </section>
+
+      <section class="login-panel" aria-label="Login">
+        <form id="loginForm" class="login-form">
+          <label>
+            Email
+            <input name="email" type="email" value="admin@example.com" autocomplete="username" required />
+          </label>
+          <label>
+            Password
+            <input name="password" type="password" value="kuzu" autocomplete="current-password" required />
+          </label>
+          <button class="primary-action" type="submit">Sign in</button>
+          <p class="muted">Local default: admin@example.com / kuzu</p>
+        </form>
+      </section>
+    </main>
+
+    <div id="appView" class="app-shell" hidden>
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <div class="brand-mark small">K</div>
+          <span>Kuzu Studio</span>
+        </div>
+        <nav class="nav-list" aria-label="Primary">
+          <button class="nav-item active" type="button" data-view="overview"><span>O</span>Overview</button>
+          <button class="nav-item" type="button" data-view="build"><span>B</span>Build</button>
+          <button class="nav-item" type="button" data-view="explore"><span>G</span>Explore</button>
+          <button class="nav-item" type="button" data-view="query"><span>Q</span>Query</button>
+          <button class="nav-item" type="button" data-view="ask"><span>A</span>Ask</button>
+        </nav>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Workspace</p>
+            <h2 id="viewTitle">Overview</h2>
+          </div>
+          <div class="topbar-actions">
+            <label class="search-box">
+              <span>Search</span>
+              <input id="globalSearch" type="search" placeholder="Documents, entities, topics" />
+            </label>
+            <button id="refreshButton" class="icon-button" type="button" title="Refresh">R</button>
+            <button id="logoutButton" class="ghost-action" type="button">Logout</button>
+          </div>
+        </header>
+
+        <div id="searchResults" class="search-results" hidden></div>
+
+        <section id="overviewPanel" class="view-panel active">
+          <div class="kpi-grid" id="kpiGrid"></div>
+          <div class="two-column">
+            <section>
+              <div class="section-heading">
+                <h3>Topic Coverage</h3>
+                <span id="topicCount" class="pill">0 topics</span>
+              </div>
+              <div id="topicTable" class="data-table"></div>
+            </section>
+            <section>
+              <div class="section-heading">
+                <h3>Relationship Samples</h3>
+                <span id="relationshipCount" class="pill">0 edges</span>
+              </div>
+              <div id="relationshipList" class="relationship-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="buildPanel" class="view-panel">
+          <form id="graphForm" class="builder-grid">
+            <section class="form-main">
+              <label>
+                Document title
+                <input name="title" placeholder="Customer onboarding runbook" required />
+              </label>
+              <div class="inline-fields">
+                <label>
+                  Source
+                  <input name="source" placeholder="docs/runbooks/onboarding.md" />
+                </label>
+                <label>
+                  Owner
+                  <input name="owner" placeholder="Knowledge Team" />
+                </label>
+              </div>
+              <label>
+                Summary
+                <textarea name="summary" rows="3" placeholder="Short summary for search and review"></textarea>
+              </label>
+              <label>
+                Knowledge text
+                <textarea name="body" rows="13" placeholder="Paste the document, notes, or source text here" required></textarea>
+              </label>
+            </section>
+            <aside class="builder-side">
+              <label>
+                Topics
+                <input name="topics" placeholder="Deployment, Support, Security" />
+              </label>
+              <label>
+                Entities
+                <textarea name="entities" rows="8" placeholder="Kuzu | Database | Embedded graph database"></textarea>
+              </label>
+              <label>
+                Entity relationships
+                <textarea name="relationships" rows="7" placeholder="Kuzu | STORES | Knowledge Graph | Kuzu stores nodes and edges"></textarea>
+              </label>
+              <div class="button-row">
+                <button id="suggestButton" class="ghost-action" type="button">Suggest entities</button>
+                <button class="primary-action" type="submit">Create graph</button>
+              </div>
+            </aside>
+          </form>
+        </section>
+
+        <section id="explorePanel" class="view-panel">
+          <div class="explore-layout">
+            <section class="graph-toolbar" aria-label="Graph filters">
+              <button class="filter-button active" type="button" data-filter="all">All</button>
+              <button class="filter-button" type="button" data-filter="Document">Documents</button>
+              <button class="filter-button" type="button" data-filter="Chunk">Chunks</button>
+              <button class="filter-button" type="button" data-filter="Entity">Entities</button>
+              <button class="filter-button" type="button" data-filter="Topic">Topics</button>
+            </section>
+            <section class="graph-stage" aria-label="Knowledge graph visualizer">
+              <svg id="graphSvg" role="img" aria-label="Knowledge graph"></svg>
+            </section>
+            <aside class="details-panel">
+              <h3>Selection</h3>
+              <div id="selectionDetails" class="details-body muted">Select a graph node or edge.</div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="queryPanel" class="view-panel">
+          <div class="query-layout">
+            <section class="query-editor">
+              <label>
+                Read-only Cypher
+                <textarea id="cypherInput" rows="10">MATCH (a:Entity)-[r:RELATED_TO]->(b:Entity) RETURN a.name AS fromEntity, r.relation AS relation, b.name AS toEntity</textarea>
+              </label>
+              <div class="button-row">
+                <button id="runCypherButton" class="primary-action" type="button">Run query</button>
+              </div>
+            </section>
+            <section>
+              <div class="section-heading">
+                <h3>Results</h3>
+                <span id="cypherCount" class="pill">0 rows</span>
+              </div>
+              <div id="cypherResults" class="data-table"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="askPanel" class="view-panel">
+          <div class="ask-layout">
+            <section>
+              <label>
+                Question
+                <textarea id="questionInput" rows="5" placeholder="How does the context graph help deployment?"></textarea>
+              </label>
+              <div class="button-row">
+                <button id="askButton" class="primary-action" type="button">Build context</button>
+              </div>
+            </section>
+            <section>
+              <div class="section-heading">
+                <h3>Evidence Pack</h3>
+                <span id="answerCount" class="pill">0 matches</span>
+              </div>
+              <div id="answerContext" class="evidence-list"></div>
+            </section>
+          </div>
+        </section>
+      </section>
+    </div>
+
+    <script type="module" src="/app.js?v=3"></script>
+  </body>
+</html>

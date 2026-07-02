@@ -1,7 +1,33 @@
+import { randomUUID } from 'node:crypto';
 import { appendLimit, cypherString, validateReadOnlyCypher } from './cypher.js';
 import { KuzuGraph } from './kuzuGraph.js';
 import { NODE_TABLES, REL_TABLES, SCHEMA_DESCRIPTION } from './schema.js';
 import type { JsonValue, QueryRow, SearchResult } from './types.js';
+
+type EntityDraft = {
+  name: string;
+  type?: string;
+  description?: string;
+};
+
+type EntityRelationshipDraft = {
+  from: string;
+  to: string;
+  relation: string;
+  evidence?: string;
+};
+
+type KnowledgeGraphDraft = {
+  title: string;
+  source?: string;
+  owner?: string;
+  createdAt?: string;
+  summary?: string;
+  body: string;
+  topics?: string[];
+  entities?: EntityDraft[];
+  relationships?: EntityRelationshipDraft[];
+};
 
 type DocumentContext = {
   document: QueryRow | null;
@@ -58,6 +84,96 @@ function termsFromQuery(query: string): string[] {
 
 function toSnippet(text: string, length = 220): string {
   return text.length <= length ? text : `${text.slice(0, length - 1)}...`;
+}
+
+function slugify(value: string): string {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+
+  return slug || 'item';
+}
+
+function uniqueId(prefix: string, label: string): string {
+  return `${prefix}-${slugify(label)}-${randomUUID().slice(0, 8)}`;
+}
+
+function compactUnique(values: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+
+  for (const value of values.map((item) => item.trim()).filter(Boolean)) {
+    const key = value.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      output.push(value);
+    }
+  }
+
+  return output;
+}
+
+function inferEntities(text: string): EntityDraft[] {
+  const candidates = text.match(/\b[A-Z][A-Za-z0-9]+(?:\s+[A-Z][A-Za-z0-9]+){0,3}\b/g) ?? [];
+  const blocked = new Set(['The', 'This', 'That', 'When', 'Where', 'Before', 'After', 'Users', 'Create']);
+  return compactUnique(candidates)
+    .filter((name) => !blocked.has(name) && name.length > 2)
+    .slice(0, 10)
+    .map((name) => ({
+      name,
+      type: 'Concept',
+      description: `Concept extracted from the uploaded knowledge text: ${name}.`,
+    }));
+}
+
+function splitIntoChunks(text: string, maxChars = 900): string[] {
+  const paragraphs = text
+    .split(/\n{2,}/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const source = paragraphs.length > 0 ? paragraphs : [text.trim()].filter(Boolean);
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const paragraph of source) {
+    if (paragraph.length > maxChars) {
+      if (current) {
+        chunks.push(current);
+        current = '';
+      }
+      for (let index = 0; index < paragraph.length; index += maxChars) {
+        chunks.push(paragraph.slice(index, index + maxChars).trim());
+      }
+      continue;
+    }
+
+    const next = current ? `${current}\n\n${paragraph}` : paragraph;
+    if (next.length > maxChars && current) {
+      chunks.push(current);
+      current = paragraph;
+    } else {
+      current = next;
+    }
+  }
+
+  if (current) {
+    chunks.push(current);
+  }
+
+  return chunks;
+}
+
+function estimateTokens(text: string): number {
+  const words = text.match(/\S+/g)?.length ?? 0;
+  return Math.max(1, Math.ceil(words * 1.33));
+}
+
+function normalizeLimit(limit: number, fallback = 300): number {
+  return Math.max(1, Math.min(Number.isFinite(limit) ? Math.trunc(limit) : fallback, 1000));
 }
 
 export class KnowledgeGraphService {
@@ -261,6 +377,163 @@ export class KnowledgeGraphService {
     };
   }
 
+  async graphSnapshot(limit = 300): Promise<Record<string, JsonValue>> {
+    const rowLimit = normalizeLimit(limit);
+    const [documents, chunks, entities, topics, hasChunks, mentions, about, related] = await Promise.all([
+      this.graph.query(
+        `MATCH (d:Document) RETURN d.id AS id, d.title AS label, d.summary AS summary, d.source AS source, d.owner AS owner, d.createdAt AS createdAt LIMIT ${rowLimit}`,
+      ),
+      this.graph.query(
+        `MATCH (c:Chunk) RETURN c.id AS id, c.section AS label, c.text AS text, c.tokenEstimate AS tokenEstimate LIMIT ${rowLimit}`,
+      ),
+      this.graph.query(
+        `MATCH (e:Entity) RETURN e.id AS id, e.name AS label, e.type AS entityType, e.description AS description LIMIT ${rowLimit}`,
+      ),
+      this.graph.query(`MATCH (t:Topic) RETURN t.id AS id, t.name AS label, t.description AS description LIMIT ${rowLimit}`),
+      this.graph.query(
+        `MATCH (d:Document)-[r:HAS_CHUNK]->(c:Chunk) RETURN d.id AS source, c.id AS target, r.position AS position LIMIT ${rowLimit}`,
+      ),
+      this.graph.query(
+        `MATCH (c:Chunk)-[r:MENTIONS]->(e:Entity) RETURN c.id AS source, e.id AS target, r.confidence AS confidence LIMIT ${rowLimit}`,
+      ),
+      this.graph.query(
+        `MATCH (d:Document)-[r:ABOUT]->(t:Topic) RETURN d.id AS source, t.id AS target, r.weight AS weight LIMIT ${rowLimit}`,
+      ),
+      this.graph.query(
+        `MATCH (a:Entity)-[r:RELATED_TO]->(b:Entity) RETURN a.id AS source, b.id AS target, r.relation AS relation, r.evidence AS evidence LIMIT ${rowLimit}`,
+      ),
+    ]);
+
+    const nodes = [
+      ...documents.map((row) => ({ ...row, type: 'Document' })),
+      ...chunks.map((row) => ({ ...row, type: 'Chunk', label: row.label || row.id })),
+      ...entities.map((row) => ({ ...row, type: 'Entity' })),
+      ...topics.map((row) => ({ ...row, type: 'Topic' })),
+    ];
+    const edges = [
+      ...hasChunks.map((row) => ({ ...row, type: 'HAS_CHUNK', label: 'HAS_CHUNK' })),
+      ...mentions.map((row) => ({ ...row, type: 'MENTIONS', label: 'MENTIONS' })),
+      ...about.map((row) => ({ ...row, type: 'ABOUT', label: 'ABOUT' })),
+      ...related.map((row) => ({ ...row, type: 'RELATED_TO', label: row.relation || 'RELATED_TO' })),
+    ];
+
+    return {
+      nodes,
+      edges,
+      counts: {
+        nodes: nodes.length,
+        edges: edges.length,
+      },
+    };
+  }
+
+  async createKnowledgeGraph(input: KnowledgeGraphDraft): Promise<Record<string, JsonValue>> {
+    const title = input.title.trim();
+    const body = input.body.trim();
+    if (!title) {
+      throw new Error('A document title is required.');
+    }
+    if (!body) {
+      throw new Error('Knowledge text is required.');
+    }
+
+    await this.graph.connect();
+
+    const documentId = uniqueId('doc', title);
+    const createdAt = input.createdAt?.trim() || new Date().toISOString();
+    const summary = input.summary?.trim() || toSnippet(body.replace(/\s+/g, ' '), 320);
+    const source = input.source?.trim() || 'kuzu-studio';
+    const owner = input.owner?.trim() || 'Knowledge Team';
+    const chunkTexts = splitIntoChunks(body);
+    const topicNames = compactUnique(input.topics ?? []);
+    const entityDrafts = this.normalizeEntityDrafts(input.entities?.length ? input.entities : inferEntities(body));
+
+    await this.graph.exec(
+      `CREATE (:Document {id: ${cypherString(documentId)}, title: ${cypherString(title)}, source: ${cypherString(source)}, owner: ${cypherString(owner)}, createdAt: ${cypherString(createdAt)}, summary: ${cypherString(summary)}})`,
+    );
+
+    const chunks: QueryRow[] = [];
+    for (const [index, text] of chunkTexts.entries()) {
+      const chunkId = `${documentId}-chunk-${index + 1}`;
+      const section = chunkTexts.length === 1 ? 'Main' : `Section ${index + 1}`;
+      const tokenEstimate = estimateTokens(text);
+      await this.graph.exec(
+        `CREATE (:Chunk {id: ${cypherString(chunkId)}, text: ${cypherString(text)}, tokenEstimate: ${tokenEstimate}, section: ${cypherString(section)}})`,
+      );
+      await this.graph.exec(
+        `MATCH (d:Document), (c:Chunk) WHERE d.id = ${cypherString(documentId)} AND c.id = ${cypherString(chunkId)} CREATE (d)-[:HAS_CHUNK {position: ${index + 1}}]->(c)`,
+      );
+      chunks.push({ id: chunkId, section, tokenEstimate, text: toSnippet(text) });
+    }
+
+    const topics: QueryRow[] = [];
+    for (const topicName of topicNames) {
+      const topic = await this.findOrCreateTopic(topicName);
+      await this.graph.exec(
+        `MATCH (d:Document), (t:Topic) WHERE d.id = ${cypherString(documentId)} AND t.id = ${cypherString(asString(topic.id))} CREATE (d)-[:ABOUT {weight: 0.9}]->(t)`,
+      );
+      topics.push(topic);
+    }
+
+    const entities: QueryRow[] = [];
+    for (const entity of entityDrafts) {
+      const existing = await this.findOrCreateEntity(entity);
+      entities.push(existing);
+      await this.createMentionsForEntity(chunkTexts, documentId, existing);
+    }
+
+    const relationships: QueryRow[] = [];
+    for (const relationship of input.relationships ?? []) {
+      const created = await this.createEntityRelationship(relationship);
+      if (created) {
+        relationships.push(created);
+      }
+    }
+
+    return {
+      document: {
+        id: documentId,
+        title,
+        source,
+        owner,
+        createdAt,
+        summary,
+      },
+      chunks,
+      topics,
+      entities,
+      relationships,
+    };
+  }
+
+  async createEntityRelationship(input: EntityRelationshipDraft): Promise<QueryRow | null> {
+    const from = input.from.trim();
+    const to = input.to.trim();
+    const relation = input.relation.trim().toUpperCase().replace(/[^A-Z0-9_]+/g, '_');
+    if (!from || !to || !relation) {
+      return null;
+    }
+
+    const [fromEntity, toEntity] = await Promise.all([this.findEntity(from), this.findEntity(to)]);
+    if (!fromEntity || !toEntity) {
+      return null;
+    }
+
+    const evidence = input.evidence?.trim() || `${asString(fromEntity.label ?? fromEntity.name)} ${relation} ${asString(toEntity.label ?? toEntity.name)}`;
+    await this.graph.exec(
+      `MATCH (a:Entity), (b:Entity) WHERE a.id = ${cypherString(asString(fromEntity.id))} AND b.id = ${cypherString(asString(toEntity.id))} CREATE (a)-[:RELATED_TO {relation: ${cypherString(relation)}, evidence: ${cypherString(evidence)}}]->(b)`,
+    );
+
+    return {
+      fromId: fromEntity.id ?? null,
+      fromName: fromEntity.name ?? fromEntity.label ?? null,
+      relation,
+      toId: toEntity.id ?? null,
+      toName: toEntity.name ?? toEntity.label ?? null,
+      evidence,
+    };
+  }
+
   private async nodeCounts(): Promise<Record<string, number>> {
     const entries = await Promise.all(NODE_TABLES.map(async (table) => [table, await this.graph.countNodes(table)] as const));
     return Object.fromEntries(entries);
@@ -304,6 +577,85 @@ export class KnowledgeGraphService {
 
     return Promise.all([...documentIds].map((documentId) => this.documentContext(documentId)));
   }
+
+  private normalizeEntityDrafts(entities: EntityDraft[]): EntityDraft[] {
+    const seen = new Set<string>();
+    const output: EntityDraft[] = [];
+
+    for (const entity of entities) {
+      const name = entity.name.trim();
+      const key = name.toLowerCase();
+      if (!name || seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      output.push({
+        name,
+        type: entity.type?.trim() || 'Concept',
+        description: entity.description?.trim() || `Curated graph entity: ${name}.`,
+      });
+    }
+
+    return output;
+  }
+
+  private async findEntity(nameOrId: string): Promise<QueryRow | null> {
+    const target = nameOrId.trim().toLowerCase();
+    if (!target) {
+      return null;
+    }
+
+    const rows = await this.graph.query('MATCH (e:Entity) RETURN e.id AS id, e.name AS name, e.type AS type, e.description AS description');
+    return rows.find((row) => asString(row.id).toLowerCase() === target || asString(row.name).toLowerCase() === target) ?? null;
+  }
+
+  private async findOrCreateEntity(entity: EntityDraft): Promise<QueryRow> {
+    const existing = await this.findEntity(entity.name);
+    if (existing) {
+      return existing;
+    }
+
+    const id = uniqueId('entity', entity.name);
+    const type = entity.type?.trim() || 'Concept';
+    const description = entity.description?.trim() || `Curated graph entity: ${entity.name}.`;
+    await this.graph.exec(
+      `CREATE (:Entity {id: ${cypherString(id)}, name: ${cypherString(entity.name)}, type: ${cypherString(type)}, description: ${cypherString(description)}})`,
+    );
+    return { id, name: entity.name, type, description };
+  }
+
+  private async findOrCreateTopic(name: string): Promise<QueryRow> {
+    const target = name.trim().toLowerCase();
+    const rows = await this.graph.query('MATCH (t:Topic) RETURN t.id AS id, t.name AS name, t.description AS description');
+    const existing = rows.find((row) => asString(row.id).toLowerCase() === target || asString(row.name).toLowerCase() === target);
+    if (existing) {
+      return existing;
+    }
+
+    const id = uniqueId('topic', name);
+    const description = `Knowledge area created in Kuzu Studio: ${name}.`;
+    await this.graph.exec(`CREATE (:Topic {id: ${cypherString(id)}, name: ${cypherString(name)}, description: ${cypherString(description)}})`);
+    return { id, name, description };
+  }
+
+  private async createMentionsForEntity(chunkTexts: string[], documentId: string, entity: QueryRow): Promise<void> {
+    const entityName = asString(entity.name);
+    const entityId = asString(entity.id);
+    const matchedIndexes = chunkTexts
+      .map((text, index) => ({ index, matched: text.toLowerCase().includes(entityName.toLowerCase()) }))
+      .filter((item) => item.matched)
+      .map((item) => item.index);
+    const mentionIndexes = matchedIndexes.length > 0 ? matchedIndexes : [0];
+
+    for (const index of mentionIndexes) {
+      const chunkId = `${documentId}-chunk-${index + 1}`;
+      const confidence = matchedIndexes.length > 0 ? 0.92 : 0.65;
+      await this.graph.exec(
+        `MATCH (c:Chunk), (e:Entity) WHERE c.id = ${cypherString(chunkId)} AND e.id = ${cypherString(entityId)} CREATE (c)-[:MENTIONS {confidence: ${confidence}}]->(e)`,
+      );
+    }
+  }
 }
 
 function uniqueRows(rows: QueryRow[], key: string): QueryRow[] {
@@ -320,4 +672,3 @@ function uniqueRows(rows: QueryRow[], key: string): QueryRow[] {
 
   return output;
 }
-
