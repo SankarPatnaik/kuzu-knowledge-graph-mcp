@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Kuzu Graph Console</title>
-    <link rel="stylesheet" href="/styles.css?v=14" />
+    <link rel="stylesheet" href="/styles.css?v=15" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -217,24 +217,14 @@
               <div id="learnProgress" class="learn-progress"></div>
             </section>
 
-            <section class="learn-actions">
-              <button class="learn-action-card" type="button" data-tutorial-select="cypher-query-practice">
-                <strong>Start with Cypher Basics</strong>
-                <span>Practice MATCH, WHERE, RETURN, LIMIT, and aggregation.</span>
-              </button>
-              <button class="learn-action-card" type="button" data-learn-section="data">
-                <strong>Explore Sample Graphs</strong>
-                <span>Load tutorial datasets into isolated Kuzu sandboxes.</span>
-              </button>
-              <button class="learn-action-card" type="button" data-tutorial-select="network-analysis-basics">
-                <strong>Practice Network Analysis</strong>
-                <span>Inspect neighborhoods, connected entities, and relation counts.</span>
-              </button>
-              <button class="learn-action-card" type="button" data-learn-section="concepts">
-                <strong>Help / Concepts</strong>
-                <span>Learn how documents, chunks, entities, topics, and relationships fit together.</span>
-              </button>
-            </section>
+            <nav class="learn-page-tabs" aria-label="Learn and Practice sections">
+              <button class="learn-page-tab active" type="button" data-learn-view="home">Home</button>
+              <button class="learn-page-tab" type="button" data-learn-view="catalog">Catalog</button>
+              <button class="learn-page-tab" type="button" data-learn-view="tutorial">Tutorial</button>
+              <button class="learn-page-tab" type="button" data-learn-view="practice">Practice</button>
+              <button class="learn-page-tab" type="button" data-learn-view="data">Data</button>
+              <button class="learn-page-tab" type="button" data-learn-view="help">Help</button>
+            </nav>
 
             <section class="panel learn-toolbar">
               <label>
@@ -249,7 +239,57 @@
               </label>
             </section>
 
-            <section class="learn-main-grid">
+            <section class="learn-page active" data-learn-page="home">
+              <section class="learn-actions">
+                <button class="learn-action-card" type="button" data-tutorial-select="cypher-query-practice" data-learn-target="practice">
+                  <strong>Start with Cypher Basics</strong>
+                  <span>Practice MATCH, WHERE, RETURN, LIMIT, and aggregation.</span>
+                </button>
+                <button class="learn-action-card" type="button" data-learn-view="data">
+                  <strong>Explore Sample Graphs</strong>
+                  <span>Load tutorial datasets into isolated Kuzu sandboxes.</span>
+                </button>
+                <button class="learn-action-card" type="button" data-tutorial-select="network-analysis-basics" data-learn-target="practice">
+                  <strong>Practice Network Analysis</strong>
+                  <span>Inspect neighborhoods, connected entities, and relation counts.</span>
+                </button>
+                <button class="learn-action-card" type="button" data-learn-view="data">
+                  <strong>Load Tutorial Dataset</strong>
+                  <span>Open the sample data manager and prepare a practice database.</span>
+                </button>
+              </section>
+
+              <section class="learn-home-grid">
+                <section class="panel">
+                  <div class="section-heading">
+                    <h3>Featured Tutorials</h3>
+                    <button class="ghost-action" type="button" data-learn-view="catalog">Browse catalog</button>
+                  </div>
+                  <div id="featuredTutorials" class="tutorial-grid compact"></div>
+                </section>
+
+                <aside class="panel learn-checklist">
+                  <div class="section-heading">
+                    <h3>Beginner Path</h3>
+                    <span class="pill">Recommended</span>
+                  </div>
+                  <ol class="tutorial-list">
+                    <li>Pick a beginner tutorial from the catalog.</li>
+                    <li>Load the tutorial dataset into its sandbox.</li>
+                    <li>Run a sample query in Practice.</li>
+                    <li>Switch between Table, Graph, JSON, and Logs.</li>
+                    <li>Copy useful queries to the main Query Editor.</li>
+                  </ol>
+                  <p class="warning-text">Practice datasets are isolated from the active database.</p>
+                  <div class="button-row left">
+                    <button class="primary-action" type="button" data-learn-view="catalog">Choose tutorial</button>
+                    <button class="ghost-action" type="button" data-learn-view="help">Open concepts</button>
+                  </div>
+                </aside>
+              </section>
+            </section>
+
+            <section class="learn-page" data-learn-page="catalog">
               <section class="panel">
                 <div class="section-heading">
                   <h3>Tutorial Catalog</h3>
@@ -257,81 +297,102 @@
                 </div>
                 <div id="tutorialCatalog" class="tutorial-grid"></div>
               </section>
+            </section>
 
-              <aside class="panel">
+            <section class="learn-page" data-learn-page="tutorial">
+              <section class="panel">
                 <div class="section-heading">
                   <h3>Tutorial Detail</h3>
                   <span id="tutorialDifficulty" class="pill">Select tutorial</span>
                 </div>
                 <div id="tutorialDetail" class="tutorial-detail empty-state">Select a tutorial to see steps, schema, queries, and attribution.</div>
-              </aside>
-            </section>
-
-            <section class="practice-layout">
-              <section class="panel practice-steps-panel">
-                <div class="section-heading">
-                  <h3>Practice Workspace</h3>
-                  <span id="practiceStatus" class="status-chip neutral">No tutorial selected</span>
-                </div>
-                <div id="practiceSteps" class="practice-steps"></div>
-                <div id="practiceQueries" class="query-list"></div>
-              </section>
-
-              <section class="panel practice-query-panel">
-                <div class="section-heading">
-                  <h3>Practice Query</h3>
-                  <span id="practiceMeta" class="pill">No query run</span>
-                </div>
-                <textarea id="practiceQueryInput" class="code-editor" rows="10" placeholder="Choose a tutorial query or write your own read-only Cypher"></textarea>
-                <div class="button-row">
-                  <button id="copyPracticeQueryButton" class="ghost-action" type="button">Copy to Query Editor</button>
-                  <button id="resetPracticeButton" class="ghost-action" type="button">Reset sandbox</button>
-                  <button id="loadPracticeDataButton" class="ghost-action" type="button">Load dataset</button>
-                  <button id="runPracticeQueryButton" class="primary-action" type="button">Run practice query</button>
-                </div>
-                <div class="tabs" role="tablist" aria-label="Practice result views">
-                  <button class="tab-button active" type="button" data-practice-tab="table">Table</button>
-                  <button class="tab-button" type="button" data-practice-tab="graph">Graph</button>
-                  <button class="tab-button" type="button" data-practice-tab="json">JSON</button>
-                  <button class="tab-button" type="button" data-practice-tab="logs">Logs</button>
-                </div>
-                <div id="practiceTablePanel" class="practice-result-panel active">
-                  <div id="practiceResults" class="data-table"></div>
-                </div>
-                <div id="practiceGraphPanel" class="practice-result-panel">
-                  <section class="graph-stage compact" aria-label="Practice graph">
-                    <svg id="practiceGraphSvg" role="img" aria-label="Practice graph"></svg>
-                  </section>
-                </div>
-                <div id="practiceJsonPanel" class="practice-result-panel">
-                  <pre id="practiceJsonResults" class="json-viewer"></pre>
-                </div>
-                <div id="practiceLogsPanel" class="practice-result-panel">
-                  <pre id="practiceLogs" class="json-viewer"></pre>
-                </div>
               </section>
             </section>
 
-            <section class="learn-main-grid">
+            <section class="learn-page" data-learn-page="practice">
+              <section class="practice-layout">
+                <section class="panel practice-steps-panel">
+                  <div class="section-heading">
+                    <h3>Practice Workspace</h3>
+                    <span id="practiceStatus" class="status-chip neutral">No tutorial selected</span>
+                  </div>
+                  <div id="practiceSteps" class="practice-steps"></div>
+                  <div id="practiceQueries" class="query-list"></div>
+                </section>
+
+                <section class="panel practice-query-panel">
+                  <div class="section-heading">
+                    <h3>Practice Query</h3>
+                    <span id="practiceMeta" class="pill">No query run</span>
+                  </div>
+                  <textarea id="practiceQueryInput" class="code-editor" rows="10" placeholder="Choose a tutorial query or write your own read-only Cypher"></textarea>
+                  <div class="button-row">
+                    <button id="copyPracticeQueryButton" class="ghost-action" type="button">Copy to Query Editor</button>
+                    <button id="resetPracticeButton" class="ghost-action" type="button">Reset sandbox</button>
+                    <button id="loadPracticeDataButton" class="ghost-action" type="button">Load dataset</button>
+                    <button id="runPracticeQueryButton" class="primary-action" type="button">Run practice query</button>
+                  </div>
+                  <div class="tabs" role="tablist" aria-label="Practice result views">
+                    <button class="tab-button active" type="button" data-practice-tab="table">Table</button>
+                    <button class="tab-button" type="button" data-practice-tab="graph">Graph</button>
+                    <button class="tab-button" type="button" data-practice-tab="json">JSON</button>
+                    <button class="tab-button" type="button" data-practice-tab="logs">Logs</button>
+                  </div>
+                  <div id="practiceTablePanel" class="practice-result-panel active">
+                    <div id="practiceResults" class="data-table"></div>
+                  </div>
+                  <div id="practiceGraphPanel" class="practice-result-panel">
+                    <section class="graph-stage compact" aria-label="Practice graph">
+                      <svg id="practiceGraphSvg" role="img" aria-label="Practice graph"></svg>
+                    </section>
+                  </div>
+                  <div id="practiceJsonPanel" class="practice-result-panel">
+                    <pre id="practiceJsonResults" class="json-viewer"></pre>
+                  </div>
+                  <div id="practiceLogsPanel" class="practice-result-panel">
+                    <pre id="practiceLogs" class="json-viewer"></pre>
+                  </div>
+                </section>
+              </section>
+            </section>
+
+            <section class="learn-page" data-learn-page="data">
               <section class="panel">
                 <div class="section-heading">
                   <h3>Sample Data Manager</h3>
                   <span class="pill">Isolated sandboxes</span>
                 </div>
+                <p class="warning-text">Load, reload, reset, inspect schema, and open graph views for tutorial-only databases.</p>
                 <div id="tutorialDataManager" class="tutorial-data-list"></div>
               </section>
+            </section>
 
-              <section class="panel">
-                <div class="section-heading">
-                  <h3>Help / Concepts</h3>
-                </div>
-                <div class="concept-grid">
-                  <article><strong>Node table</strong><span>A table that stores graph nodes with the same label and properties.</span></article>
-                  <article><strong>Relationship table</strong><span>A typed edge from one node table to another node table.</span></article>
-                  <article><strong>Sandbox database</strong><span>A separate practice Kuzu database used for tutorials only.</span></article>
-                  <article><strong>Read-only practice query</strong><span>A safe Cypher query that inspects data without mutating it.</span></article>
-                </div>
-                <p class="warning-text">Practice datasets are loaded into isolated sandbox databases and will not modify your active database.</p>
+            <section class="learn-page" data-learn-page="help">
+              <section class="learn-main-grid">
+                <section class="panel">
+                  <div class="section-heading">
+                    <h3>Help / Concepts</h3>
+                  </div>
+                  <div class="concept-grid">
+                    <article><strong>Node table</strong><span>A table that stores graph nodes with the same label and properties.</span></article>
+                    <article><strong>Relationship table</strong><span>A typed edge from one node table to another node table.</span></article>
+                    <article><strong>Sandbox database</strong><span>A separate practice Kuzu database used for tutorials only.</span></article>
+                    <article><strong>Read-only practice query</strong><span>A safe Cypher query that inspects data without mutating it.</span></article>
+                  </div>
+                  <p class="warning-text">Practice datasets are loaded into isolated sandbox databases and will not modify your active database.</p>
+                </section>
+
+                <aside class="panel">
+                  <div class="section-heading">
+                    <h3>Common Tasks</h3>
+                  </div>
+                  <div class="concept-grid single">
+                    <article><strong>Create a practice graph</strong><span>Open Data, choose a tutorial dataset, then load it into its sandbox.</span></article>
+                    <article><strong>Run a tutorial query</strong><span>Open Practice, choose a sample query, edit it if needed, and run it.</span></article>
+                    <article><strong>See the graph visually</strong><span>Run a graph-shaped query or open the loaded tutorial dataset in Explore Graph.</span></article>
+                    <article><strong>Start over safely</strong><span>Reset the sandbox. Your active database remains unchanged.</span></article>
+                  </div>
+                </aside>
               </section>
             </section>
           </div>
@@ -463,6 +524,6 @@
       </section>
     </div>
 
-    <script type="module" src="/app.js?v=14"></script>
+    <script type="module" src="/app.js?v=15"></script>
   </body>
 </html>

@@ -191,6 +191,7 @@ Use **Learn & Practice** when you want to learn KuzuDB concepts inside the produ
 
 This page includes:
 
+- Home, Catalog, Tutorial, Practice, Data, and Help tabs
 - a tutorial catalog
 - search and topic filters
 - step-by-step tutorial details
@@ -212,9 +213,9 @@ They do not modify the active database shown on the **Databases** page.
 #### Run Your First Practice Tutorial
 
 1. Open **Learn & Practice**.
-2. Select **Getting Started with KuzuDB**.
-3. Click **Load Dataset**.
-4. In **Practice Query**, choose the first sample query.
+2. On **Home**, click **Start with Cypher Basics**.
+3. Confirm the **Practice** tab opens with a query in the editor.
+4. Click **Load dataset**.
 5. Click **Run practice query**.
 6. Open **Table** to see rows.
 7. Open **JSON** to see the same rows as JSON.
@@ -223,6 +224,8 @@ They do not modify the active database shown on the **Databases** page.
 10. Click **Open in Query Editor** or **Copy to Query Editor** to continue in the main **Query** page.
 
 #### Use The Tutorial Catalog
+
+Open the **Catalog** tab or type in the tutorial search box. Searching automatically shows the catalog results.
 
 Tutorial cards show:
 
@@ -249,7 +252,7 @@ Use the topic filter for:
 
 #### Use The Practice Workspace
 
-The left side shows the tutorial steps and sample queries. The right side is a practice editor.
+Open the **Practice** tab. The left side shows the tutorial steps and sample queries. The right side is a practice editor.
 
 Common actions:
 

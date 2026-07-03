@@ -33,16 +33,27 @@ admin@example.com / kuzu
 ```
 
 4. Click **Learn & Practice** in the sidebar.
-5. Select a tutorial such as **Getting Started with KuzuDB**.
-6. Click **Load Dataset**.
-7. Choose a sample query and click **Run**.
-8. Review the result in **Table**, **Graph**, **JSON**, or **Logs**.
+5. Use the Learn tabs: **Home**, **Catalog**, **Tutorial**, **Practice**, **Data**, and **Help**.
+6. Click **Start with Cypher Basics** to open Practice with a query ready to run.
+7. Click **Load dataset**.
+8. Click **Run practice query**.
+9. Review the result in **Table**, **Graph**, **JSON**, or **Logs**.
 
 ## Beginner Workflow
 
-### 1. Browse Tutorials
+### 1. Start From Home
 
-On **Learn & Practice**, use the search box or topic filter to find a tutorial.
+The **Home** tab gives a beginner-friendly starting point:
+
+- **Start with Cypher Basics** opens the practice workspace with a beginner query.
+- **Explore Sample Graphs** opens the sample data manager.
+- **Practice Network Analysis** opens the network tutorial in Practice.
+- **Load Tutorial Dataset** opens the data manager.
+- **Featured Tutorials** shows recommended tutorials from the bundled catalog.
+
+### 2. Browse Tutorials
+
+Open **Catalog**, then use the search box or topic filter to find a tutorial.
 
 Each tutorial card shows:
 
@@ -56,9 +67,9 @@ Each tutorial card shows:
 
 Click **Start Tutorial** to open the detail panel.
 
-### 2. Read The Tutorial Detail
+### 3. Read The Tutorial Detail
 
-The tutorial detail panel includes:
+Open **Tutorial** to read the selected tutorial. The detail page includes:
 
 - learning objectives
 - schema preview
@@ -70,9 +81,9 @@ The tutorial detail panel includes:
 
 Use **Copy** to copy a query, **Run in Practice** to send it to the practice workspace, or **Open in Query Editor** to move it into the main Query page.
 
-### 3. Load Sample Data
+### 4. Load Sample Data
 
-Click **Load Dataset** before running practice queries.
+Open **Data** or use a tutorial card's **Load Dataset** button before running practice queries.
 
 Practice data is loaded into:
 
@@ -82,9 +93,9 @@ Practice data is loaded into:
 
 This is separate from the active Kuzu database configured by `KUZU_DB_PATH`.
 
-### 4. Run Practice Queries
+### 5. Run Practice Queries
 
-In the **Practice Workspace**:
+Open **Practice**:
 
 1. Pick a sample query or type your own read-only Cypher.
 2. Click **Run practice query**.
@@ -93,13 +104,13 @@ In the **Practice Workspace**:
 
 Practice queries use the same read-only Cypher guard as the main Query page.
 
-### 5. Reset A Practice Dataset
+### 6. Reset A Practice Dataset
 
 Use **Reset sandbox** or the **Sample Data Manager** reset action when you want a clean tutorial database.
 
 Reset removes only the tutorial sandbox folder. It does not modify the active database.
 
-### 6. Mark A Tutorial Complete
+### 7. Mark A Tutorial Complete
 
 Click **Mark complete** when you finish the tutorial. The progress summary updates for the current app session.
 
@@ -107,12 +118,12 @@ Click **Mark complete** when you finish the tutorial. The progress summary updat
 
 | Area | Purpose |
 | --- | --- |
-| Learn & Practice Home | Welcome card, quick action cards, progress summary, search, and filters |
+| Learn & Practice Home | Welcome card, quick action cards, progress summary, search, filters, and featured tutorials |
 | Tutorial Catalog | Searchable list of tutorial cards |
 | Tutorial Detail | Objectives, schema preview, dataset files, steps, queries, and attribution |
 | Practice Workspace | Split workspace for steps, query editor, results, graph, JSON, and logs |
 | Sample Data Manager | Dataset load/reload/reset/schema/explore actions |
-| Help / Concepts | Beginner explanations for sandbox DBs, schemas, Cypher, and graph results |
+| Help / Concepts | Beginner explanations and common task guidance for safe practice |
 
 ## Bundled Starter Tutorials
 
@@ -252,14 +263,16 @@ Manual test checklist:
 2. Log in.
 3. Open **Learn & Practice**.
 4. Search for `Cypher`.
-5. Select **Cypher Query Practice**.
-6. Click **Load Dataset**.
-7. Run a sample query.
-8. Confirm **Table** and **JSON** show rows.
-9. Open **Graph** for relationship-shaped results.
-10. Click **Copy** and confirm the query copies.
-11. Click **Query Editor** and confirm the main Query page opens with the query.
-12. Open **Sample Data Manager** and reset the sandbox.
+5. Confirm the Catalog tab opens and shows matching cards.
+6. Click **Start with Cypher Basics** on Home.
+7. Confirm Practice opens with a query in the editor.
+8. Click **Load dataset**.
+9. Run the sample query.
+10. Confirm **Table** and **JSON** show rows.
+11. Open **Graph** for relationship-shaped results.
+12. Click **Copy** and confirm the query copies.
+13. Click **Query Editor** and confirm the main Query page opens with the query.
+14. Open **Data** and reset the sandbox.
 
 ## Limitations And TODOs
 

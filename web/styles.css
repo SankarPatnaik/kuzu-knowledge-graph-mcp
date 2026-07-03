@@ -521,6 +521,46 @@ h3 {
   gap: 16px;
 }
 
+.learn-page-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
+.learn-page-tab {
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  padding: 8px 12px;
+  font-weight: 780;
+}
+
+.learn-page-tab:hover {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.learn-page-tab.active {
+  border-color: #b8cdfd;
+  background: #eef4ff;
+  color: var(--blue);
+}
+
+.learn-page {
+  display: none;
+}
+
+.learn-page.active {
+  display: grid;
+  gap: 16px;
+}
+
 .learn-hero {
   display: flex;
   align-items: center;
@@ -566,6 +606,18 @@ h3 {
   display: grid;
   grid-template-columns: repeat(4, minmax(170px, 1fr));
   gap: 12px;
+}
+
+.learn-home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  gap: 16px;
+}
+
+.learn-checklist {
+  display: grid;
+  align-content: start;
+  gap: 14px;
 }
 
 .learn-action-card,
@@ -616,6 +668,10 @@ h3 {
 .tutorial-data-list {
   display: grid;
   gap: 12px;
+}
+
+.tutorial-grid.compact {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .tutorial-card,
@@ -756,6 +812,10 @@ h3 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.concept-grid.single {
+  grid-template-columns: 1fr;
 }
 
 .concept-grid article {
@@ -1283,6 +1343,7 @@ code {
   .query-workspace,
   .explore-layout,
   .import-layout,
+  .learn-home-grid,
   .learn-main-grid,
   .practice-layout {
     grid-template-columns: 1fr;
@@ -1357,9 +1418,15 @@ code {
   .learn-progress,
   .learn-actions,
   .learn-toolbar,
+  .tutorial-grid.compact,
   .schema-mini-grid,
   .concept-grid {
     grid-template-columns: 1fr;
+  }
+
+  .learn-page-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .nav-list {

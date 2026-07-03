@@ -14,6 +14,7 @@ const state = {
   tutorialSearch: '',
   tutorialTopicFilter: 'all',
   selectedTutorialId: null,
+  learnSection: 'home',
   tutorialBusy: null,
   practiceResult: null,
   practiceError: null,
@@ -50,6 +51,7 @@ const defaultTutorialTopics = [
   'Marimo / Notebook',
   'Advanced Queries',
 ];
+const learnSections = ['home', 'catalog', 'tutorial', 'practice', 'data', 'help'];
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -95,6 +97,7 @@ const elements = {
   learnProgress: $('#learnProgress'),
   tutorialSearch: $('#tutorialSearch'),
   tutorialTopicFilter: $('#tutorialTopicFilter'),
+  featuredTutorials: $('#featuredTutorials'),
   tutorialCount: $('#tutorialCount'),
   tutorialCatalog: $('#tutorialCatalog'),
   tutorialDifficulty: $('#tutorialDifficulty'),
@@ -678,20 +681,94 @@ function renderTutorialTopicOptions() {
   elements.tutorialTopicFilter.value = state.tutorialTopicFilter;
 }
 
+function normalizeLearnSection(section) {
+  return learnSections.includes(section) ? section : 'home';
+}
+
+function setLearnSection(section, shouldRender = false) {
+  state.learnSection = normalizeLearnSection(section);
+  if (shouldRender) {
+    renderLearn();
+  }
+}
+
+function renderLearnPages() {
+  state.learnSection = normalizeLearnSection(state.learnSection);
+  $$('[data-learn-page]').forEach((panel) => {
+    panel.classList.toggle('active', panel.dataset.learnPage === state.learnSection);
+  });
+  $$('.learn-page-tab').forEach((button) => {
+    button.classList.toggle('active', button.dataset.learnView === state.learnSection);
+  });
+}
+
+function tutorialCardMarkup(tutorial, options = {}) {
+  const startTarget = options.startTarget ?? 'tutorial';
+  const startLabel = options.startLabel ?? 'Start Tutorial';
+  const loadTarget = options.loadTarget ?? 'data';
+  return `
+    <article class="tutorial-card ${tutorial.id === state.selectedTutorialId ? 'active' : ''}">
+      <div class="tutorial-card-header">
+        <div>
+          <h3>${escapeHtml(tutorial.title)}</h3>
+          <p>${escapeHtml(tutorial.description)}</p>
+        </div>
+        <span class="status-chip ${tutorial.difficulty === 'Beginner' ? 'success' : 'neutral'}">${escapeHtml(tutorial.difficulty)}</span>
+      </div>
+      <div class="tag-row">
+        ${(tutorial.tags ?? []).map((tag) => `<span>${escapeHtml(tag)}</span>`).join('')}
+      </div>
+      <div class="tutorial-meta">
+        <span>${escapeHtml(tutorial.estimatedMinutes)} min</span>
+        <span>${tutorial.dataset ? 'Dataset included' : 'No dataset'}</span>
+        <span>${tutorial.completed ? 'Completed' : tutorial.started ? 'Started' : 'New'}</span>
+      </div>
+      <div class="button-row left">
+        <button class="primary-action" type="button" data-tutorial-select="${escapeHtml(tutorial.id)}" data-learn-target="${escapeHtml(startTarget)}">${escapeHtml(startLabel)}</button>
+        <button class="ghost-action" type="button" data-tutorial-load="${escapeHtml(tutorial.id)}" data-learn-target="${escapeHtml(loadTarget)}" ${tutorialBusyAttr(tutorial.id)}>${tutorialActionLabel(tutorial.id, 'load', 'Load Dataset')}</button>
+        <a class="ghost-link" href="${escapeHtml(tutorial.sourceUrl)}" target="_blank" rel="noreferrer">Open Source</a>
+      </div>
+    </article>
+  `;
+}
+
+function renderFeaturedTutorials() {
+  if (!elements.featuredTutorials) {
+    return;
+  }
+
+  if (state.serviceErrors.tutorials && state.tutorials.length === 0) {
+    elements.featuredTutorials.innerHTML = `<p class="warning-text">Tutorial service failed: ${escapeHtml(state.serviceErrors.tutorials)}</p>`;
+    return;
+  }
+
+  const beginnerTutorials = state.tutorials.filter((tutorial) => tutorial.difficulty === 'Beginner');
+  const featured = (beginnerTutorials.length ? beginnerTutorials : state.tutorials).slice(0, 3);
+  elements.featuredTutorials.innerHTML =
+    featured.length === 0
+      ? '<p class="empty-state">No tutorials available yet.</p>'
+      : featured.map((tutorial) => tutorialCardMarkup(tutorial, { startLabel: 'Open Tutorial' })).join('');
+}
+
 function focusTutorialByTopic(topic) {
   state.tutorialSearch = '';
   state.tutorialTopicFilter = topic;
+  state.learnSection = 'tutorial';
 
   const match = state.tutorials.find((tutorial) => (tutorial.tags ?? []).includes(topic));
   if (match) {
     state.selectedTutorialId = match.id;
     state.practiceResult = null;
     state.practiceError = null;
+    elements.practiceQueryInput.value = match.sampleQueries?.[0]?.query ?? '';
   }
 
   switchView('learn');
   renderLearn();
-  document.querySelector(match ? '#tutorialDetail' : '#tutorialCatalog')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (!match) {
+    state.learnSection = 'catalog';
+    renderLearn();
+  }
 
   if (!match) {
     toast(state.serviceErrors.tutorials ?? `No tutorials found for ${topic}.`);
@@ -710,10 +787,12 @@ function renderLearn() {
     <article><strong>${escapeHtml(progress.practiceQueriesRun ?? 0)}</strong><span>Practice queries</span></article>
   `;
   renderTutorialTopicOptions();
+  renderLearnPages();
 
   if (state.serviceErrors.tutorials && state.tutorials.length === 0) {
     elements.tutorialCount.textContent = 'Unavailable';
     elements.tutorialCatalog.innerHTML = `<p class="warning-text">Tutorial service failed: ${escapeHtml(state.serviceErrors.tutorials)}</p>`;
+    renderFeaturedTutorials();
     elements.tutorialDifficulty.textContent = 'Unavailable';
     elements.tutorialDetail.innerHTML = '<p class="empty-state">Tutorials are unavailable. Other console pages can still be used.</p>';
     elements.practiceStatus.textContent = 'Unavailable';
@@ -727,39 +806,13 @@ function renderLearn() {
   elements.tutorialTopicFilter.value = state.tutorialTopicFilter;
   elements.tutorialSearch.value = state.tutorialSearch;
 
+  renderFeaturedTutorials();
   const tutorials = filteredTutorials();
   elements.tutorialCount.textContent = `${tutorials.length} tutorials`;
   elements.tutorialCatalog.innerHTML =
     tutorials.length === 0
       ? '<p class="empty-state">No tutorials match the current filters.</p>'
-      : tutorials
-          .map(
-            (tutorial) => `
-              <article class="tutorial-card ${tutorial.id === state.selectedTutorialId ? 'active' : ''}">
-                <div class="tutorial-card-header">
-                  <div>
-                    <h3>${escapeHtml(tutorial.title)}</h3>
-                    <p>${escapeHtml(tutorial.description)}</p>
-                  </div>
-                  <span class="status-chip ${tutorial.difficulty === 'Beginner' ? 'success' : 'neutral'}">${escapeHtml(tutorial.difficulty)}</span>
-                </div>
-                <div class="tag-row">
-                  ${(tutorial.tags ?? []).map((tag) => `<span>${escapeHtml(tag)}</span>`).join('')}
-                </div>
-                <div class="tutorial-meta">
-                  <span>${escapeHtml(tutorial.estimatedMinutes)} min</span>
-                  <span>${tutorial.dataset ? 'Dataset included' : 'No dataset'}</span>
-                  <span>${tutorial.completed ? 'Completed' : tutorial.started ? 'Started' : 'New'}</span>
-                </div>
-                <div class="button-row left">
-                  <button class="primary-action" type="button" data-tutorial-select="${escapeHtml(tutorial.id)}">Start Tutorial</button>
-                  <button class="ghost-action" type="button" data-tutorial-load="${escapeHtml(tutorial.id)}" ${tutorialBusyAttr(tutorial.id)}>${tutorialActionLabel(tutorial.id, 'load', 'Load Dataset')}</button>
-                  <a class="ghost-link" href="${escapeHtml(tutorial.sourceUrl)}" target="_blank" rel="noreferrer">Open Source</a>
-                </div>
-              </article>
-            `,
-          )
-          .join('');
+      : tutorials.map((tutorial) => tutorialCardMarkup(tutorial)).join('');
 
   renderTutorialDetail();
   renderPracticeResult();
@@ -1567,6 +1620,7 @@ async function showTutorialSchema(id = state.selectedTutorialId) {
     const schema = await api(`/api/tutorials/${encodeURIComponent(id)}/schema`);
     const runtimeSchema = schema.runtimeSchema;
     toast(runtimeSchema ? 'Tutorial runtime schema is loaded.' : 'Tutorial schema preview is available in the detail panel.');
+    state.learnSection = 'tutorial';
     switchView('learn');
   } finally {
     state.tutorialBusy = null;
@@ -1678,6 +1732,12 @@ document.addEventListener('click', async (event) => {
   }
 
   try {
+  if (target.dataset.learnView) {
+    setLearnSection(target.dataset.learnView);
+    switchView('learn');
+    return;
+  }
+
   if (target.dataset.viewLink) {
     switchView(target.dataset.viewLink);
   }
@@ -1694,37 +1754,50 @@ document.addEventListener('click', async (event) => {
 
   if (target.dataset.tutorialSelect) {
     state.selectedTutorialId = target.dataset.tutorialSelect;
+    state.learnSection = normalizeLearnSection(target.dataset.learnTarget || 'tutorial');
     state.practiceResult = null;
     state.practiceError = null;
-    renderLearn();
-    document.querySelector('#tutorialDetail')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const tutorial = state.tutorials.find((candidate) => candidate.id === state.selectedTutorialId);
+    elements.practiceQueryInput.value = tutorial?.sampleQueries?.[0]?.query ?? '';
+    switchView('learn');
+    return;
   }
 
   if (target.dataset.tutorialLoad) {
     state.selectedTutorialId = target.dataset.tutorialLoad;
+    if (target.dataset.learnTarget) {
+      state.learnSection = normalizeLearnSection(target.dataset.learnTarget);
+    }
     await loadTutorialDataset(target.dataset.tutorialLoad);
+    return;
   }
 
   if (target.dataset.tutorialReset) {
     await resetTutorialDataset(target.dataset.tutorialReset);
+    return;
   }
 
   if (target.dataset.tutorialComplete) {
     await completeTutorial(target.dataset.tutorialComplete);
+    return;
   }
 
   if (target.dataset.tutorialOpenGraph) {
     await openTutorialGraph(target.dataset.tutorialOpenGraph).catch((error) => toast(error.message));
+    return;
   }
 
   if (target.dataset.tutorialOpenSchema) {
     await showTutorialSchema(target.dataset.tutorialOpenSchema);
+    return;
   }
 
   if (target.dataset.practiceQuery) {
     elements.practiceQueryInput.value = target.dataset.practiceQuery;
     state.practiceTab = 'table';
+    state.learnSection = 'practice';
     switchView('learn');
+    return;
   }
 
   if (target.dataset.copyQuery) {
@@ -1739,12 +1812,14 @@ document.addEventListener('click', async (event) => {
 
   if (target.dataset.learnFocus) {
     focusTutorialByTopic(target.dataset.learnFocus);
+    return;
   }
 
   if (target.dataset.learnSection) {
+    const section = target.dataset.learnSection === 'concepts' ? 'help' : target.dataset.learnSection;
+    setLearnSection(section);
     switchView('learn');
-    const selector = target.dataset.learnSection === 'data' ? '#tutorialDataManager' : '.concept-grid';
-    document.querySelector(selector)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
   }
 
   if (target.dataset.resultTab) {
@@ -1815,11 +1890,13 @@ elements.tutorialSearch.addEventListener(
   'input',
   debounce(() => {
     state.tutorialSearch = elements.tutorialSearch.value;
+    state.learnSection = 'catalog';
     renderLearn();
   }, 180),
 );
 elements.tutorialTopicFilter.addEventListener('change', () => {
   state.tutorialTopicFilter = elements.tutorialTopicFilter.value;
+  state.learnSection = 'catalog';
   renderLearn();
 });
 elements.loadPracticeDataButton.addEventListener('click', () => {

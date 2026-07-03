@@ -200,6 +200,7 @@ Use **Learn & Practice** when you want guided Kuzu examples without using the co
 
 The tutorial center includes:
 
+- Home, Catalog, Tutorial, Practice, Data, and Help tabs
 - searchable tutorial catalog
 - topic filters
 - tutorial detail panel
@@ -214,9 +215,9 @@ The tutorial center includes:
 First practice run:
 
 1. Open **Learn & Practice**.
-2. Choose **Getting Started with KuzuDB**.
-3. Click **Load Dataset**.
-4. Pick a sample query.
+2. On **Home**, click **Start with Cypher Basics**.
+3. Confirm **Practice** opens with a query ready.
+4. Click **Load dataset**.
 5. Click **Run practice query**.
 6. Review **Table** and **JSON**.
 7. Use **Open in Query Editor** to continue in the main query workspace.
