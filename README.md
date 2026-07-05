@@ -112,7 +112,7 @@ Learn & Practice guide: [docs/LEARN_AND_PRACTICE.md](./docs/LEARN_AND_PRACTICE.m
 
 Console API/reference guide: [docs/STUDIO.md](./docs/STUDIO.md)
 
-To create a new graph from pasted documents or notes, follow [Create A New Knowledge Graph](./docs/USER_GUIDE.md#create-a-new-knowledge-graph).
+To create a new graph from a local file, pasted documents, or notes, follow [Create A New Knowledge Graph](./docs/USER_GUIDE.md#create-a-new-knowledge-graph).
 
 To learn Kuzu concepts safely before using your own data, open **Learn & Practice** and load a tutorial dataset into `.kuzu-practice/<tutorial-id>/`.
 

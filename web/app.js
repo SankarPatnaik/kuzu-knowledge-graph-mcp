@@ -40,6 +40,7 @@ const views = {
 
 const nodeOrder = ['Document', 'Chunk', 'Entity', 'Topic'];
 const savedQueryKey = 'kuzu-console-saved-queries';
+const importFileSizeLimit = 5 * 1024 * 1024;
 const defaultTutorialTopics = [
   'Getting Started',
   'Data Import',
@@ -127,9 +128,12 @@ const elements = {
   exploreGraphSvg: $('#exploreGraphSvg'),
   selectionDetails: $('#selectionDetails'),
   importForm: $('#importForm'),
+  sourceFileInput: $('#sourceFileInput'),
+  clearFileButton: $('#clearFileButton'),
   suggestButton: $('#suggestButton'),
   previewImportButton: $('#previewImportButton'),
   importPreview: $('#importPreview'),
+  fileImportStatus: $('#fileImportStatus'),
   logsTable: $('#logsTable'),
   clearLogsButton: $('#clearLogsButton'),
   settingsStatus: $('#settingsStatus'),
@@ -1365,6 +1369,124 @@ function parseRelationships(value) {
     .filter((relationship) => relationship.from && relationship.relation && relationship.to);
 }
 
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) {
+    return 'unknown size';
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${Math.round((bytes / 1024) * 10) / 10} KB`;
+  }
+  return `${Math.round((bytes / (1024 * 1024)) * 10) / 10} MB`;
+}
+
+function extensionFromFileName(name) {
+  const match = String(name ?? '').toLowerCase().match(/\.([a-z0-9]+)$/);
+  return match?.[1] ?? '';
+}
+
+function titleFromFileName(name) {
+  const withoutExtension = String(name ?? 'Imported file').replace(/\.[^.]+$/, '');
+  return withoutExtension
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function sourceLabelFromFile(file) {
+  return `local-upload/${file.name}`;
+}
+
+function topicDefaultsForFile(file) {
+  const extension = extensionFromFileName(file.name);
+  if (extension === 'csv') {
+    return ['Data Import', 'Uploaded File', 'CSV'];
+  }
+  if (extension === 'md' || extension === 'markdown') {
+    return ['Documentation', 'Uploaded File'];
+  }
+  if (extension === 'json' || extension === 'jsonl') {
+    return ['Data Import', 'Uploaded File', 'JSON'];
+  }
+  if (extension === 'cypher' || extension === 'sql') {
+    return ['Cypher Basics', 'Uploaded File'];
+  }
+  return ['Uploaded File'];
+}
+
+function importBodyFromFile(file, rawText) {
+  const extension = extensionFromFileName(file.name);
+  const text = rawText.replace(/\u0000/g, '').trim();
+  if (extension === 'csv') {
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    const columns = lines[0]?.split(',').map((column) => column.trim()).filter(Boolean) ?? [];
+    return [
+      `Uploaded CSV file: ${file.name}`,
+      columns.length ? `Columns: ${columns.join(', ')}` : '',
+      `Rows detected: ${Math.max(lines.length - 1, 0)}`,
+      '',
+      text,
+    ]
+      .filter((part) => part !== '')
+      .join('\n');
+  }
+  if (extension === 'json' || extension === 'jsonl') {
+    try {
+      const parsed = extension === 'jsonl' ? text.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)) : JSON.parse(text);
+      return `Uploaded ${extension.toUpperCase()} file: ${file.name}\n\n${JSON.stringify(parsed, null, 2)}`;
+    } catch {
+      return `Uploaded ${extension.toUpperCase()} file: ${file.name}\n\n${text}`;
+    }
+  }
+  return text;
+}
+
+function setFormValueIfEmpty(name, value) {
+  const field = elements.importForm.elements[name];
+  if (field && !String(field.value ?? '').trim()) {
+    field.value = value;
+  }
+}
+
+async function loadSourceFile(file) {
+  if (!file) {
+    return;
+  }
+  if (file.size > importFileSizeLimit) {
+    const message = `File is ${formatBytes(file.size)}. Please choose a file under ${formatBytes(importFileSizeLimit)}.`;
+    elements.fileImportStatus.textContent = message;
+    toast(message);
+    return;
+  }
+
+  try {
+    elements.fileImportStatus.textContent = `Reading ${file.name}...`;
+    const rawText = await file.text();
+    const body = importBodyFromFile(file, rawText);
+    elements.importForm.elements.body.value = body;
+    setFormValueIfEmpty('title', titleFromFileName(file.name));
+    setFormValueIfEmpty('source', sourceLabelFromFile(file));
+    setFormValueIfEmpty('summary', `Imported from ${file.name} (${formatBytes(file.size)}).`);
+    setFormValueIfEmpty('topics', topicDefaultsForFile(file).join(', '));
+    setFormValueIfEmpty('entities', suggestEntitiesFromText(body));
+    elements.importPreview.innerHTML = '';
+    elements.fileImportStatus.textContent = `Loaded ${file.name} (${formatBytes(file.size)}) into the import form. Preview before running import.`;
+    toast('File loaded into Import Data.');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    elements.fileImportStatus.textContent = `Could not read ${file.name}: ${message}`;
+    toast(`Could not read file: ${message}`);
+  }
+}
+
+function clearSourceFile() {
+  elements.sourceFileInput.value = '';
+  elements.fileImportStatus.textContent = 'No file selected.';
+}
+
 function draftFromImportForm() {
   const form = new FormData(elements.importForm);
   return {
@@ -1938,6 +2060,15 @@ elements.suggestButton.addEventListener('click', () => {
   elements.importForm.elements.entities.value = suggestions;
   toast(suggestions ? 'Entity suggestions added.' : 'No entity suggestions found.');
 });
+elements.sourceFileInput.addEventListener('change', () => {
+  const file = elements.sourceFileInput.files?.[0];
+  if (file) {
+    loadSourceFile(file);
+  } else {
+    clearSourceFile();
+  }
+});
+elements.clearFileButton.addEventListener('click', clearSourceFile);
 elements.previewImportButton.addEventListener('click', () => {
   previewImport().catch((error) => toast(error.message));
 });

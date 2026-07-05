@@ -1238,6 +1238,39 @@ code {
   gap: 15px;
 }
 
+.file-import-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 14px;
+}
+
+.file-import-card strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.file-picker {
+  display: grid;
+  gap: 7px;
+}
+
+.file-picker span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 780;
+}
+
+.file-picker input[type='file'] {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 9px;
+}
+
 .import-preview {
   display: grid;
   gap: 8px;

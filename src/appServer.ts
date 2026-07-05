@@ -40,6 +40,7 @@ const appUser = process.env.KG_APP_USER || 'admin@example.com';
 const appPassword = process.env.KG_APP_PASSWORD || 'kuzu';
 const sessionCookie = 'kuzu_studio_session';
 const sessionTtlMs = 1000 * 60 * 60 * 8;
+const maxJsonBodyBytes = 8_000_000;
 
 const contentTypes: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
@@ -116,8 +117,8 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   for await (const chunk of req) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
     size += buffer.length;
-    if (size > 2_000_000) {
-      throw new Error('Request body is too large.');
+    if (size > maxJsonBodyBytes) {
+      throw new Error(`Request body is too large. Keep imports under ${Math.floor(maxJsonBodyBytes / (1024 * 1024))} MB.`);
     }
     chunks.push(buffer);
   }

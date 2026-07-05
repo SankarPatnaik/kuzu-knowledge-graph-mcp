@@ -68,7 +68,9 @@ This screen creates a document-centered graph:
 - optional `Entity` nodes
 - optional `RELATED_TO` edges between entities
 
-### 3. Fill In The Document Fields
+### 3. Upload A File Or Fill In The Document Fields
+
+Use **Upload local file** when your source already exists as a local `.txt`, `.md`, `.csv`, `.json`, `.jsonl`, `.cypher`, `.sql`, or `.log` file. The browser reads the file into the import form and pre-fills source metadata before anything is written to Kuzu.
 
 Use these fields:
 
@@ -78,7 +80,7 @@ Use these fields:
 | Source | File path, URL, or source label | `docs/runbooks/onboarding.md` |
 | Owner | Team or person responsible for the content | `Customer Success` |
 | Summary | Short description for search and review | `Steps for onboarding a new enterprise customer.` |
-| Knowledge text | The actual source text to store in the graph | Paste the runbook, FAQ, or notes |
+| Knowledge text | The actual source text to store in the graph | Upload a local file, or paste the runbook, FAQ, or notes |
 
 The app automatically splits `Knowledge text` into chunk nodes and connects them to the document.
 

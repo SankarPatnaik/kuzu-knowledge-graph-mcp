@@ -300,13 +300,13 @@ If the graph is too large, lower the limit or use a smaller depth.
 
 ### Import Data
 
-Use **Import Data** to create a knowledge graph from pasted source text.
+Use **Import Data** to create a knowledge graph from an uploaded local file or pasted source text.
 
 This is the most beginner-friendly way to add new data.
 
-#### Step 1: Prepare Some Text
+#### Step 1: Prepare A File Or Some Text
 
-You can paste:
+You can upload or paste:
 
 - a support article
 - a runbook
@@ -314,7 +314,11 @@ You can paste:
 - an FAQ
 - a policy
 - meeting notes
-- a small CSV copied as text
+- a small CSV
+- a Markdown or text file
+- a JSON or JSONL file
+
+Supported upload formats include `.txt`, `.md`, `.markdown`, `.csv`, `.json`, `.jsonl`, `.cypher`, `.sql`, and `.log`.
 
 Example text:
 
@@ -333,7 +337,9 @@ Tenant Isolation protects customer data.
 | Source | `docs/support/authentication.md` |
 | Owner | `Support Team` |
 | Summary | `How the support portal uses API keys and tenant isolation.` |
-| Source text or CSV notes | Paste the source text |
+| Source text, uploaded file content, or CSV notes | Upload a file or paste the source text |
+
+If you upload a file, the console fills the title, source, summary, topics, entity suggestions, and source text for you. Review and edit those fields before importing.
 
 #### Step 3: Add Topics
 

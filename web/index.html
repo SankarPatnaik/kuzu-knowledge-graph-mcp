@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Kuzu Graph Console</title>
-    <link rel="stylesheet" href="/styles.css?v=15" />
+    <link rel="stylesheet" href="/styles.css?v=16" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -461,9 +461,23 @@
                 Summary
                 <textarea name="summary" rows="3" placeholder="Short summary for search and review"></textarea>
               </label>
+              <section class="file-import-card" aria-label="Upload local source file">
+                <div>
+                  <strong>Upload local file</strong>
+                  <p class="muted">Choose a text, Markdown, CSV, JSON, JSONL, Cypher, SQL, or log file. The console reads it into this import form before writing to Kuzu.</p>
+                </div>
+                <label class="file-picker">
+                  <span>Choose file</span>
+                  <input id="sourceFileInput" type="file" accept=".txt,.md,.markdown,.csv,.json,.jsonl,.cypher,.sql,.log,text/*,application/json,text/csv" />
+                </label>
+                <div class="button-row left">
+                  <button id="clearFileButton" class="ghost-action" type="button">Clear file</button>
+                </div>
+                <p id="fileImportStatus" class="muted">No file selected.</p>
+              </section>
               <label>
-                Source text or CSV notes
-                <textarea name="body" rows="13" placeholder="Paste source text, CSV notes, or a runbook here" required></textarea>
+                Source text, uploaded file content, or CSV notes
+                <textarea name="body" rows="13" placeholder="Upload a local file, or paste source text, CSV notes, or a runbook here" required></textarea>
               </label>
             </section>
             <aside class="panel import-side">
@@ -524,6 +538,6 @@
       </section>
     </div>
 
-    <script type="module" src="/app.js?v=15"></script>
+    <script type="module" src="/app.js?v=16"></script>
   </body>
 </html>
